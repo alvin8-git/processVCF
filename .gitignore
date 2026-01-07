@@ -1,13 +1,16 @@
-# Software directories (for Docker build only)
-annovar/
-snpEff/
-CancerVar/
-
-# Data files
+# Data files (runtime generated)
 *.vcf
-*.txt
 *.xlsx
 data/
 
 # Build artifacts
 *.log
+
+# Large example files (not needed for Docker)
+annovar/example/gene_fullxref.txt
+
+# VEP test files (not needed for Docker build)
+ensembl-vep/t/
+ensembl-vep/travisci/
+ensembl-vep/*.txt
+ensembl-vep/htslib/test/*.txt
