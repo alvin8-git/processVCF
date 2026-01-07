@@ -2,15 +2,28 @@
 .git
 .gitignore
 
-# Documentation
+# Documentation (except LICENSE)
 README.md
-*.md
 
-# Data files (should be mounted)
+# Data files (should be mounted at runtime)
 data/
+
+# Test/example VCF files in root
 *.vcf
-*.txt
+
+# Output files
 *.xlsx
 
 # Build artifacts
 *.log
+
+# Exclude examples but keep CancerVar database
+annovar/example/
+CancerVar/example/
+snpEff/examples/
+
+# VEP - exclude tests and docs but keep core functionality
+ensembl-vep/t/
+ensembl-vep/travisci/
+ensembl-vep/.travis.yml
+ensembl-vep/docker/

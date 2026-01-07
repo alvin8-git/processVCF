@@ -63,6 +63,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cpanminus \
     zlib1g-dev \
     python3-dev \
+    libbz2-dev \
+    liblzma-dev \
     # Required for VEP
     libdbi-perl \
     libdbd-mysql-perl \
@@ -126,13 +128,16 @@ COPY --chown=$USERNAME:$USERNAME CancerVar/ /home/$USERNAME/Software/CancerVar/
 # =============================================================================
 # VEP (Ensembl Variant Effect Predictor)
 # =============================================================================
-# VEP installation is optional - can be mounted from host or installed separately
-# Mount path for VEP: /home/user/Software/ensembl-vep
-# Mount path for VEP cache: /home/user/Databases/vep
+# VEP software is included in the image
+# VEP cache (28GB+) should be mounted at runtime: /home/user/Databases/vep
 
-# Create VEP directories for mounting
-RUN mkdir -p /home/$USERNAME/Software/ensembl-vep \
-             /home/$USERNAME/Databases/vep
+COPY --chown=$USERNAME:$USERNAME ensembl-vep/ /home/$USERNAME/Software/ensembl-vep/
+
+# Create VEP cache directory and run full VEP installation (API + htslib, no cache)
+RUN mkdir -p /home/$USERNAME/Databases/vep && \
+    chmod +x /home/$USERNAME/Software/ensembl-vep/vep && \
+    cd /home/$USERNAME/Software/ensembl-vep && \
+    perl INSTALL.pl --AUTO a --NO_TEST --NO_UPDATE --DESTDIR /home/$USERNAME/Software/ensembl-vep
 
 # =============================================================================
 # PIPELINE SCRIPTS
