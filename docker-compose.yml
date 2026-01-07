@@ -1,0 +1,51 @@
+# =============================================================================
+# docker-compose.yml for processVCF Pipeline
+# =============================================================================
+# Usage:
+#   1. Build: docker-compose build
+#   2. Run:   docker-compose run --rm processvcf
+#
+# Prerequisites:
+#   - Databases directory at ${HOME}/Databases
+#   - VEP installation at ${HOME}/Software/ensembl-vep (optional)
+# =============================================================================
+
+version: '3.8'
+
+services:
+  processvcf:
+    build: .
+    image: processvcf:latest
+    container_name: processvcf
+    volumes:
+      # Mount databases (required for full operation)
+      - ${HOME}/Databases:/home/user/Databases:ro
+
+      # Mount VEP (optional - large installation)
+      - ${HOME}/Software/ensembl-vep:/home/user/Software/ensembl-vep:ro
+
+      # Mount data directory for processing (read-write)
+      - ./data:/data
+
+    working_dir: /data
+    stdin_open: true
+    tty: true
+    command: bash
+
+  # Alternative minimal configuration (specific databases only)
+  processvcf-minimal:
+    build: .
+    image: processvcf:latest
+    volumes:
+      # Specific database paths
+      - ${HOME}/Databases/humandb:/home/user/Databases/humandb:ro
+      - ${HOME}/Databases/WholeGenomeFASTA:/home/user/Databases/WholeGenomeFASTA:ro
+      - ${HOME}/Databases/TMSPvcf:/home/user/Databases/TMSPvcf:ro
+      - ${HOME}/Databases/Ensembldata:/home/user/Databases/Ensembldata:ro
+      - ${HOME}/Databases/snpEff:/home/user/Databases/snpEff:ro
+      # Data directory
+      - ./data:/data
+    working_dir: /data
+    stdin_open: true
+    tty: true
+    command: bash

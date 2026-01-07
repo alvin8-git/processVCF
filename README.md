@@ -16,9 +16,9 @@ This pipeline:
 ```
 processVCF/
 ├── processVCF.sh                    # Main pipeline script (includes vcf_stats & filter_anno)
-├── mergeVCFannotation-optimized.sh  # Optimized annotation engine
-├── writeTMSPtoXLS.pl                # Excel report writer
-├── write1WStoXLS.pl                 # Summary Excel writer
+├── mergeVCFannotation-optimized.sh  # Optimized annotation engine (includes Excel writers)
+├── Dockerfile                       # Docker container build file
+├── docker-compose.yml               # Docker Compose configuration
 └── README.md                        # This file
 ```
 
@@ -72,15 +72,37 @@ These should be present in `$HOME/Databases/`:
 
 ## Installation
 
+### Option 1: Docker (Recommended)
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/alvin8-git/processVCF.git
    cd processVCF
    ```
 
-2. Make scripts executable (if not already):
+2. Build the Docker container:
    ```bash
-   chmod +x *.sh *.pl
+   docker build -t processvcf .
+   ```
+
+3. Run with your data and databases:
+   ```bash
+   docker run -v /path/to/Databases:/home/user/Databases \
+              -v /path/to/vcf:/data \
+              -it processvcf bash
+   ```
+
+### Option 2: Native Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/alvin8-git/processVCF.git
+   cd processVCF
+   ```
+
+2. Make scripts executable:
+   ```bash
+   chmod +x *.sh
    ```
 
 3. Verify dependencies:
@@ -212,9 +234,33 @@ Typical runtime: ~10-15 minutes for 4-5 samples (vs ~18+ minutes sequential)
 | File | Description |
 |------|-------------|
 | `processVCF.sh` | Main orchestration script with integrated vcf_stats and filter_anno functions |
-| `mergeVCFannotation-optimized.sh` | Core annotation engine with parallel execution and integrated functions |
-| `writeTMSPtoXLS.pl` | Generates per-sample Excel reports with multiple worksheets |
-| `write1WStoXLS.pl` | Generates single-worksheet Excel files (for Summary) |
+| `mergeVCFannotation-optimized.sh` | Core annotation engine with parallel execution, integrated Excel writers |
+| `Dockerfile` | Docker container build file with all required tools |
+| `docker-compose.yml` | Docker Compose configuration for easy deployment |
+
+## Docker Container
+
+The Docker container includes:
+- bcftools, tabix, vcftools
+- GNU Parallel
+- Perl with Excel::Writer::XLSX
+- Java (OpenJDK 11)
+- Python 3 with TransVar
+- ANNOVAR (scripts only)
+- snpEff 5.0e
+- CancerVar
+
+**Note:** VEP and databases must be mounted at runtime due to their large size.
+
+### Required Volume Mounts
+
+```bash
+docker run \
+  -v $HOME/Databases:/home/user/Databases:ro \
+  -v $HOME/Software/ensembl-vep:/home/user/Software/ensembl-vep:ro \
+  -v /path/to/vcf:/data \
+  -it processvcf bash
+```
 
 ## License
 
@@ -222,6 +268,7 @@ MIT License
 
 ## Version History
 
+- v2.2 (2025-01): Docker support, integrated Excel writers into main scripts
 - v2.1 (2025-01): Integrated VCFstats and filterAnno functions into main scripts
 - v2.0 (2025-01): Optimized parallel pipeline, combined TMSP/CEBPA support
 - v1.0: Original AWK-based implementation

@@ -838,6 +838,134 @@ filter_and_summarize() {
     log_success "Filtering and summarizing completed"
 }
 
+# =============================================================================
+# EXCEL WRITER FUNCTIONS (integrated from writeTMSPtoXLS.pl and write1WStoXLS.pl)
+# =============================================================================
+
+# Write multi-worksheet Excel file for a sample
+# Usage: write_sample_xlsx <vcf_file>
+write_sample_xlsx() {
+    local vcf="$1"
+    local sample=$(basename "$vcf" .vcf)
+
+    [ -f "$sample.xlsx" ] && return 0
+
+    perl - "$sample" <<'PERL_SCRIPT'
+use strict;
+use warnings;
+use Excel::Writer::XLSX;
+
+my $sample = $ARGV[0];
+my $sampleName = $sample;
+$sampleName =~ s/^(.{20}).*/$1/;
+
+# Check required files exist
+for my $ext (qw(Filter.txt annotation.txt annoCheck.txt compare.txt compareVAF.txt)) {
+    die "$sample.$ext not found" unless -f "$sample.$ext";
+}
+
+open(FILTER, "$sample.Filter.txt") or die "$sample.Filter.txt: $!";
+open(ANNOTATION, "$sample.annotation.txt") or die "$sample.annotation.txt: $!";
+open(CHECK, "$sample.annoCheck.txt") or die "$sample.annoCheck.txt: $!";
+open(COMPARE, "$sample.compare.txt") or die "$sample.compare.txt: $!";
+open(COMPAREVAF, "$sample.compareVAF.txt") or die "$sample.compareVAF.txt: $!";
+
+my $workbook = Excel::Writer::XLSX->new("$sample.xlsx");
+my $filter = $workbook->add_worksheet("$sampleName.filter");
+my $annotation = $workbook->add_worksheet("$sampleName");
+my $check = $workbook->add_worksheet("$sampleName.check");
+my $compare = $workbook->add_worksheet("$sampleName.comp");
+my $compareVAF = $workbook->add_worksheet("$sampleName.compVF");
+
+my $row = 0;
+while (<FILTER>) {
+    chomp;
+    my @fields = split('\t', $_);
+    my $col = 0;
+    for my $c (@fields) { $filter->write($row, $col++, $c); }
+    $row++;
+}
+
+$row = 0;
+while (<ANNOTATION>) {
+    chomp;
+    my @fields = split('\t', $_);
+    my $col = 0;
+    for my $c (@fields) { $annotation->write($row, $col++, $c); }
+    $row++;
+}
+
+$row = 0;
+while (<CHECK>) {
+    chomp;
+    my @fields = split('\t', $_);
+    my $col = 0;
+    for my $c (@fields) { $check->write($row, $col++, $c); }
+    $row++;
+}
+
+$row = 0;
+while (<COMPARE>) {
+    chomp;
+    my @fields = split('\t', $_);
+    my $col = 0;
+    for my $c (@fields) { $compare->write($row, $col++, $c); }
+    $row++;
+}
+
+$row = 0;
+while (<COMPAREVAF>) {
+    chomp;
+    my @fields = split('\t', $_);
+    my $col = 0;
+    for my $c (@fields) { $compareVAF->write($row, $col++, $c); }
+    $row++;
+}
+
+$workbook->close();
+PERL_SCRIPT
+}
+
+# Write single-worksheet Excel file
+# Usage: write_summary_xlsx <xlsx_name> <txt_file>
+write_summary_xlsx() {
+    local xlsname="$1"
+    local txtfile="$2"
+
+    [ -f "$xlsname.xlsx" ] && return 0
+    [ ! -f "$txtfile" ] && return 1
+
+    perl - "$xlsname" "$txtfile" <<'PERL_SCRIPT'
+use strict;
+use warnings;
+use Excel::Writer::XLSX;
+
+my ($xlsname, $txtfile) = @ARGV;
+
+open(WS1, "$txtfile") or die "$txtfile: $!";
+
+my $workbook = Excel::Writer::XLSX->new("$xlsname.xlsx");
+my $sheetname = $txtfile;
+$sheetname =~ s/\.txt$//;
+my $worksheet = $workbook->add_worksheet("$sheetname");
+
+my $row = 0;
+while (<WS1>) {
+    chomp;
+    my @fields = split('\t', $_);
+    my $col = 0;
+    for my $c (@fields) { $worksheet->write($row, $col++, $c); }
+    $row++;
+}
+
+$workbook->close();
+PERL_SCRIPT
+}
+
+# Export functions for parallel
+export -f write_sample_xlsx
+export -f write_summary_xlsx
+
 write_excel() {
     log_step "WRITING EXCEL OUTPUT"
 
@@ -846,12 +974,16 @@ write_excel() {
         return 0
     fi
 
-    log_info "Using Excel writer: $EXCEL_WRITER"
-    parallel --memsuspend "$MEM_SUSPEND" "[ -f {.}.xlsx ] || perl $SCRIPTS_DIR/$EXCEL_WRITER {.}.vcf" :::: VCFlist.txt
+    log_info "Writing Excel files using integrated functions"
+
+    # Write per-sample Excel files
+    for vcf in $(cat VCFlist.txt); do
+        write_sample_xlsx "$vcf"
+    done
 
     # Summary Excel only for TMSP mode
     if [[ "$DO_SUMMARY" == true ]] && [ -f Summary.txt ] && [ ! -f Summary.xlsx ]; then
-        perl "$SCRIPTS_DIR/write1WStoXLS.pl" Summary Summary.txt
+        write_summary_xlsx "Summary" "Summary.txt"
     fi
 
     log_success "Excel output completed"

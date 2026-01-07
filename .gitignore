@@ -1,0 +1,13 @@
+# Software directories (for Docker build only)
+annovar/
+snpEff/
+CancerVar/
+
+# Data files
+*.vcf
+*.txt
+*.xlsx
+data/
+
+# Build artifacts
+*.log
