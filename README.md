@@ -221,13 +221,18 @@ Same structure as TMSP, but:
 
 Automatically generated IGV snapshots for filtered variants:
 - PNG images for each variant position
+- Filename format: `{short_sample_id}-{gene}-{position}.png`
+- Short sample ID extracted from first two parts (e.g., AML-452 from AML-452-KHK-TMSP_S1)
 - Created using xvfb-run (virtual X display)
 - Requires BAM files in `../bam/` directory
 
 ```
 SnapShots/
-├── SAMPLE1-TP53-12345.png
-├── SAMPLE1-FLT3-54321.png
+├── AML-452-TP53-7579651.png
+├── AML-452-ASXL1-31022441.png
+├── AML-452-STAG2-123195662.png
+├── AML-453-STAG2-123195662.png    # Each sample gets unique file
+├── MPN-184-JAK2-5073770.png
 └── ...
 ```
 
@@ -239,13 +244,20 @@ Interactive HTML variant reports for each sample. Each sample generates a **sing
 
 ```
 html_reports/
-├── AML-452-KHK-TMSP_S1.html    # Complete report with dashboard + all variants
-├── AML-453-ASR-TMSP_S3.html    # Each sample is independent
+├── Summary.html                   # Landing page with links to all samples
+├── AML-452-KHK-TMSP_S1.html       # Complete report with dashboard + all variants
+├── AML-453-ASR-TMSP_S3.html       # Each sample is independent
 ├── AML-454-TLB-TMSP_S5.html
 └── MPN-184-THH-TMSP_S6.html
 ```
 
-**Dashboard View:**
+**Summary.html (Landing Page):**
+- Overview of all samples analyzed in the run
+- Total sample count and variant count
+- Click on sample card to open detailed report
+- Placeholder for future sequencing QC and coverage QC data
+
+**Dashboard View (per sample):**
 - Summary statistics (total variants, genes affected, tier counts)
 - Clickable stat cards for quick filtering
 - Filterable variant table by gene, classification, or search
