@@ -1133,6 +1133,325 @@ class VariantReportGenerator:
         with open(self.output_dir / f'variant_{idx + 1}.html', 'w', encoding='utf-8') as f:
             f.write(html)
 
+    def generate_single_page(self, output_path: str = None):
+        """Generate a single HTML page containing all variants"""
+        if output_path is None:
+            output_path = self.output_dir / f'{self.sample_name}.html'
+        else:
+            output_path = Path(output_path)
+
+        # Ensure parent directory exists
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Collect stats
+        genes = set()
+        tiers = {'tier-i': 0, 'tier-ii': 0, 'tier-iii': 0, 'tier-iv': 0, 'unknown': 0}
+
+        for variant in self.variants:
+            genes.add(variant[6] if len(variant) > 6 else 'Unknown')
+            _, tier_class = parse_cancervar(variant[18] if len(variant) > 18 else '')
+            tiers[tier_class] = tiers.get(tier_class, 0) + 1
+
+        # Additional CSS for single-page layout
+        single_page_css = """
+/* Single Page Variant Cards */
+.variant-card {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.variant-card-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #34495e 100%);
+    color: white;
+    padding: 18px 25px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.variant-card-header:hover {
+    background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+}
+
+.variant-card-header .gene-name {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+}
+
+.variant-card-header .variant-info {
+    font-size: 0.95rem;
+    opacity: 0.9;
+    font-family: 'Monaco', 'Menlo', monospace;
+    margin-top: 4px;
+}
+
+.variant-card-header .header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.variant-card-header .card-toggle {
+    font-size: 1.5rem;
+    transition: transform 0.3s;
+}
+
+.variant-card.collapsed .card-toggle {
+    transform: rotate(-90deg);
+}
+
+.variant-card.collapsed .variant-card-content {
+    display: none;
+}
+
+.variant-card-content {
+    padding: 20px;
+    background: var(--light-bg);
+}
+
+/* Quick Nav */
+.quick-nav {
+    background: white;
+    border-radius: 10px;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.quick-nav-title {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.quick-nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.quick-nav-link {
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--light-bg);
+    border-radius: 20px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: 1px solid var(--border-color);
+}
+
+.quick-nav-link:hover {
+    background: var(--secondary-color);
+    color: white;
+    border-color: var(--secondary-color);
+}
+
+.quick-nav-link .tier-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.quick-nav-link .tier-dot.tier-i { background: var(--tier1-color); }
+.quick-nav-link .tier-dot.tier-ii { background: var(--tier2-color); }
+.quick-nav-link .tier-dot.tier-iii { background: var(--tier3-color); }
+.quick-nav-link .tier-dot.tier-iv { background: var(--tier4-color); }
+.quick-nav-link .tier-dot.unknown { background: var(--text-muted); }
+
+/* Expand/Collapse All */
+.controls-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.control-btn {
+    padding: 8px 16px;
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.control-btn:hover {
+    background: #2980b9;
+}
+"""
+
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variant Report - {escape(self.sample_name)}</title>
+    <style>
+{get_css_styles()}
+{single_page_css}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Variant Analysis Report</h1>
+            <div class="subtitle">Sample: {escape(self.sample_name)}</div>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-value">{len(self.variants)}</div>
+                <div class="stat-label">Total Variants</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--secondary-color);">{len(genes)}</div>
+                <div class="stat-label">Genes Affected</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--tier1-color);">{tiers.get('tier-i', 0)}</div>
+                <div class="stat-label">Tier I (Strong)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--tier2-color);">{tiers.get('tier-ii', 0)}</div>
+                <div class="stat-label">Tier II (Potential)</div>
+            </div>
+        </div>
+
+        <div class="quick-nav">
+            <div class="quick-nav-title">Quick Navigation</div>
+            <div class="quick-nav-links">
+"""
+
+        # Add quick nav links for each variant
+        for idx, variant in enumerate(self.variants):
+            gene = str(variant[6]) if len(variant) > 6 and variant[6] else 'Unknown'
+            hgvsp = str(variant[10]) if len(variant) > 10 and variant[10] else ''
+            _, tier_class = parse_cancervar(variant[18] if len(variant) > 18 else '')
+            label = f"{gene}"
+            if hgvsp:
+                label += f" {hgvsp}"
+
+            html += f"""
+                <a href="#variant-{idx + 1}" class="quick-nav-link">
+                    <span class="tier-dot {tier_class}"></span>{escape(label)}
+                </a>
+"""
+
+        html += """
+            </div>
+        </div>
+
+        <div class="controls-bar">
+            <button class="control-btn" onclick="expandAll()">Expand All</button>
+            <button class="control-btn" onclick="collapseAll()">Collapse All</button>
+        </div>
+"""
+
+        # Generate each variant card
+        for idx, variant in enumerate(self.variants):
+            gene = str(variant[6]) if len(variant) > 6 and variant[6] else 'Unknown'
+            hgvsc = str(variant[9]) if len(variant) > 9 and variant[9] else ''
+            hgvsp = str(variant[10]) if len(variant) > 10 and variant[10] else ''
+            tier_text, tier_class = parse_cancervar(variant[18] if len(variant) > 18 else '')
+
+            variant_notation = f"{hgvsc}"
+            if hgvsp:
+                variant_notation += f" ({hgvsp})"
+
+            html += f"""
+        <div class="variant-card" id="variant-{idx + 1}">
+            <div class="variant-card-header" onclick="toggleVariantCard(this)">
+                <div>
+                    <h2 class="gene-name">{escape(gene)}</h2>
+                    <div class="variant-info">{escape(variant_notation)}</div>
+                </div>
+                <div class="header-right">
+                    <span class="classification-badge {tier_class}">{escape(tier_text)}</span>
+                    <span class="card-toggle">&#9662;</span>
+                </div>
+            </div>
+            <div class="variant-card-content">
+"""
+
+            # Add all 5 panels
+            html += self._generate_basic_info_panel(variant)
+            html += self._generate_sample_comparison_panel(variant)
+            html += self._generate_additional_info_panel(variant)
+            html += self._generate_population_panel(variant)
+            html += self._generate_computational_panel(variant)
+
+            html += """
+            </div>
+        </div>
+"""
+
+        # Close container and add JavaScript
+        html += """
+    </div>
+    <script>
+""" + get_javascript() + """
+
+// Toggle individual variant card
+function toggleVariantCard(header) {
+    const card = header.parentElement;
+    card.classList.toggle('collapsed');
+}
+
+// Expand all variant cards
+function expandAll() {
+    document.querySelectorAll('.variant-card').forEach(card => {
+        card.classList.remove('collapsed');
+    });
+}
+
+// Collapse all variant cards
+function collapseAll() {
+    document.querySelectorAll('.variant-card').forEach(card => {
+        card.classList.add('collapsed');
+    });
+}
+
+// Smooth scroll to variant when clicking quick nav
+document.querySelectorAll('.quick-nav-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = link.getAttribute('href').substring(1);
+        const target = document.getElementById(targetId);
+        if (target) {
+            // Expand the card if collapsed
+            target.classList.remove('collapsed');
+            // Smooth scroll
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+});
+    </script>
+</body>
+</html>
+"""
+
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(html)
+
+        print(f"Generated single-page report: {output_path}")
+
     def _generate_basic_info_panel(self, variant: List) -> str:
         """Generate Basic Variant Information panel"""
         html = """
@@ -1504,24 +1823,60 @@ class VariantReportGenerator:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 excel_to_html_report.py <input_excel_file> [output_directory]")
-        print("\nExample:")
-        print("  python3 excel_to_html_report.py sample.xlsx ./html_output")
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Convert Excel variant files to HTML reports',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Generate multi-page report (dashboard + individual variant pages)
+  python3 excel_to_html_report.py sample.xlsx ./html_output
+
+  # Generate single-page report (all variants on one page)
+  python3 excel_to_html_report.py sample.xlsx --single-page
+
+  # Generate single-page report to specific file
+  python3 excel_to_html_report.py sample.xlsx --single-page -o report.html
+
+  # Generate both formats
+  python3 excel_to_html_report.py sample.xlsx ./html_output --single-page
+"""
+    )
+
+    parser.add_argument('excel_file', help='Input Excel file (.xlsx)')
+    parser.add_argument('output_dir', nargs='?', default=None,
+                        help='Output directory for multi-page reports (default: ./html_reports)')
+    parser.add_argument('--single-page', '-s', action='store_true',
+                        help='Generate a single HTML page with all variants')
+    parser.add_argument('--output', '-o', default=None,
+                        help='Output file path for single-page report (default: <sample_name>.html)')
+
+    args = parser.parse_args()
+
+    if not os.path.exists(args.excel_file):
+        print(f"Error: File not found: {args.excel_file}")
         sys.exit(1)
 
-    excel_path = sys.argv[1]
-    output_dir = sys.argv[2] if len(sys.argv) > 2 else None
-
-    if not os.path.exists(excel_path):
-        print(f"Error: File not found: {excel_path}")
-        sys.exit(1)
-
-    generator = VariantReportGenerator(excel_path, output_dir)
+    generator = VariantReportGenerator(args.excel_file, args.output_dir)
     generator.load_data()
-    generator.generate_all()
 
-    print(f"\nOpen {generator.output_dir / 'index.html'} in a browser to view the report.")
+    if args.single_page:
+        # Generate single-page report
+        output_path = args.output
+        if output_path is None:
+            # Default to same directory as Excel file
+            output_path = Path(args.excel_file).parent / f'{generator.sample_name}.html'
+        generator.generate_single_page(output_path)
+
+        # Also generate multi-page if output_dir was specified
+        if args.output_dir:
+            generator.generate_all()
+            print(f"\nOpen {generator.output_dir / 'index.html'} for multi-page view.")
+    else:
+        # Generate multi-page report only
+        generator.generate_all()
+        print(f"\nOpen {generator.output_dir / 'index.html'} in a browser to view the report.")
 
 
 if __name__ == '__main__':

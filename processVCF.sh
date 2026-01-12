@@ -328,36 +328,38 @@ generate_html_reports() {
     # Generate HTML reports for each TMSP xlsx file (excluding Summary.xlsx and CEBNX files)
     cd "$output_dir"
 
+    # Create html_reports directory
+    mkdir -p html_reports
+
     local xlsx_count=0
-    for xlsx in $(ls *-TMSP*.xlsx 2>/dev/null | grep -v "^Summary"); do
+    for xlsx in $(ls *-TMSP*.xlsx 2>/dev/null | grep -v "^Summary" | grep -v "^~"); do
         log_info "Generating HTML report for: $xlsx"
 
-        # Create output directory named after the sample
         local sample_name=$(basename "$xlsx" .xlsx)
-        local html_dir="html_reports/${sample_name}"
 
-        python3 "$html_script" "$xlsx" "$html_dir"
+        # Generate single-page report (sample_name.html)
+        python3 "$html_script" "$xlsx" --single-page -o "html_reports/${sample_name}.html"
 
         if [ $? -eq 0 ]; then
             xlsx_count=$((xlsx_count + 1))
-            log_info "  -> Generated: $html_dir/index.html"
+            log_info "  -> Generated: html_reports/${sample_name}.html"
         else
             log_error "  -> Failed to generate HTML for $xlsx"
         fi
     done
 
     # Also generate for CEBNX files if present
-    for xlsx in $(ls *-CEBNX*.xlsx 2>/dev/null | grep -v "^Summary"); do
+    for xlsx in $(ls *-CEBNX*.xlsx 2>/dev/null | grep -v "^Summary" | grep -v "^~"); do
         log_info "Generating HTML report for: $xlsx"
 
         local sample_name=$(basename "$xlsx" .xlsx)
-        local html_dir="html_reports/${sample_name}"
 
-        python3 "$html_script" "$xlsx" "$html_dir"
+        # Generate single-page report (sample_name.html)
+        python3 "$html_script" "$xlsx" --single-page -o "html_reports/${sample_name}.html"
 
         if [ $? -eq 0 ]; then
             xlsx_count=$((xlsx_count + 1))
-            log_info "  -> Generated: $html_dir/index.html"
+            log_info "  -> Generated: html_reports/${sample_name}.html"
         else
             log_error "  -> Failed to generate HTML for $xlsx"
         fi
