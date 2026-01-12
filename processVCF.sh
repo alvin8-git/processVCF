@@ -581,11 +581,87 @@ generate_igv_snapshots() {
 }
 
 # =============================================================================
+# CHECKPOINT DETECTION FUNCTIONS
+# =============================================================================
+
+check_annotation_complete() {
+    # Check if annotation is complete (xlsx files exist in output)
+    local output_dir="../output"
+    if [ -d "$output_dir/annotationTMSP" ]; then
+        local xlsx_count=$(ls "$output_dir/annotationTMSP"/*.xlsx 2>/dev/null | wc -l)
+        if [ "$xlsx_count" -gt 0 ]; then
+            return 0  # Annotation complete
+        fi
+    fi
+    return 1  # Annotation not complete
+}
+
+check_igv_complete() {
+    # Check if IGV snapshots exist
+    local output_dir="../output"
+    if [ -d "$output_dir/SnapShots" ]; then
+        local png_count=$(ls "$output_dir/SnapShots"/*.png 2>/dev/null | wc -l)
+        if [ "$png_count" -gt 0 ]; then
+            return 0  # IGV complete
+        fi
+    fi
+    return 1  # IGV not complete
+}
+
+check_html_complete() {
+    # Check if HTML reports exist
+    local output_dir="../output"
+    if [ -d "$output_dir/html_reports" ]; then
+        local html_count=$(ls "$output_dir/html_reports"/*.html 2>/dev/null | wc -l)
+        if [ "$html_count" -gt 1 ]; then  # More than just Summary.html
+            return 0  # HTML complete
+        fi
+    fi
+    return 1  # HTML not complete
+}
+
+show_status() {
+    echo ""
+    echo "Pipeline Status:"
+    echo "================"
+
+    if check_annotation_complete; then
+        local xlsx_count=$(ls ../output/annotationTMSP/*.xlsx 2>/dev/null | wc -l)
+        echo "  [✓] Annotation complete ($xlsx_count Excel files)"
+    else
+        echo "  [ ] Annotation not complete"
+    fi
+
+    if check_igv_complete; then
+        local png_count=$(ls ../output/SnapShots/*.png 2>/dev/null | wc -l)
+        echo "  [✓] IGV snapshots complete ($png_count images)"
+    else
+        echo "  [ ] IGV snapshots not complete"
+    fi
+
+    if check_html_complete; then
+        local html_count=$(ls ../output/html_reports/*.html 2>/dev/null | wc -l)
+        echo "  [✓] HTML reports complete ($html_count files)"
+    else
+        echo "  [ ] HTML reports not complete"
+    fi
+    echo ""
+}
+
+# =============================================================================
 # MAIN FUNCTION
 # =============================================================================
 
 main() {
     local start_time=$(date +%s)
+
+    # Stage flags
+    local run_annotation=false
+    local run_igv=false
+    local run_html=false
+    local run_all=true
+    local force=false
+    local show_status_only=false
 
     log_info "=========================================="
     log_info "VCF Processing Pipeline (TMSP + CEBPA)"
@@ -599,6 +675,35 @@ main() {
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --annotate|--annotation)
+                run_annotation=true
+                run_all=false
+                ;;
+            --igv|--snapshots)
+                run_igv=true
+                run_all=false
+                ;;
+            --html|--reports)
+                run_html=true
+                run_all=false
+                ;;
+            --from-igv)
+                # Run from IGV stage onwards
+                run_igv=true
+                run_html=true
+                run_all=false
+                ;;
+            --from-html)
+                # Run only HTML stage
+                run_html=true
+                run_all=false
+                ;;
+            --force|-f)
+                force=true
+                ;;
+            --status)
+                show_status_only=true
+                ;;
             --check)
                 log_info "Checking dependencies..."
                 echo ""
@@ -659,15 +764,34 @@ main() {
                 echo "Usage: $0 [options]"
                 echo "  Run from the vcf directory containing TMSP VCF files"
                 echo ""
+                echo "Pipeline Stages:"
+                echo "  1. Annotation  - Run ANNOVAR, VEP, snpEff, TransVar, CancerVar"
+                echo "  2. IGV         - Generate IGV snapshots from BAM files"
+                echo "  3. HTML        - Generate HTML reports from Excel files"
+                echo ""
                 echo "Options:"
-                echo "  --check       Check dependencies"
-                echo "  --help        Show this help"
+                echo "  (no options)    Run all stages (skip completed stages)"
+                echo "  --status        Show pipeline completion status"
+                echo "  --annotate      Run annotation stage only"
+                echo "  --igv           Run IGV snapshot stage only"
+                echo "  --html          Run HTML report stage only"
+                echo "  --from-igv      Run from IGV stage onwards (IGV + HTML)"
+                echo "  --from-html     Run HTML stage only (same as --html)"
+                echo "  --force, -f     Force re-run even if stage is complete"
+                echo "  --check         Check dependencies"
+                echo "  --help          Show this help"
+                echo ""
+                echo "Examples:"
+                echo "  $0                  # Run full pipeline, skip completed stages"
+                echo "  $0 --status         # Check what stages are complete"
+                echo "  $0 --from-igv       # Re-run IGV and HTML (annotation already done)"
+                echo "  $0 --html --force   # Force regenerate HTML reports"
                 echo ""
                 echo "Expected directory structure:"
                 echo "  /path/to/analysis/"
                 echo "  ├── vcf/                  <- Run script from here"
-                echo "  ├── cebpa/vcf/            <- CEBPA VCF files"
-                echo "  ├── bam/                  <- BAM files"
+                echo "  ├── cebpa/vcf/            <- CEBPA VCF files (optional)"
+                echo "  ├── bam/                  <- BAM files (for IGV)"
                 echo "  └── output/               <- Created by script"
                 exit 0
                 ;;
@@ -677,22 +801,86 @@ main() {
                 exit 1
                 ;;
         esac
+        shift
     done
 
-    # Process TMSP
-    process_tmsp
+    # Show status only
+    if [ "$show_status_only" = true ]; then
+        show_status
+        exit 0
+    fi
 
-    # Process CEBPA
-    process_cebpa
+    # Determine which stages to run
+    if [ "$run_all" = true ]; then
+        run_annotation=true
+        run_igv=true
+        run_html=true
+    fi
 
-    # Create output directory and copy files
-    create_output
+    # =========================================================================
+    # STAGE 1: ANNOTATION
+    # =========================================================================
+    if [ "$run_annotation" = true ]; then
+        if [ "$force" = true ] || ! check_annotation_complete; then
+            log_info ">>> STAGE 1: ANNOTATION"
 
-    # Generate HTML reports from Excel files
-    generate_html_reports
+            # Process TMSP
+            process_tmsp
 
-    # Generate IGV snapshots from filtered variants
-    generate_igv_snapshots
+            # Process CEBPA
+            process_cebpa
+
+            # Create output directory and copy files
+            create_output
+        else
+            log_info ">>> STAGE 1: ANNOTATION [SKIPPED - already complete]"
+            log_info "    Use --force to re-run annotation"
+        fi
+    fi
+
+    # =========================================================================
+    # STAGE 2: IGV SNAPSHOTS
+    # =========================================================================
+    if [ "$run_igv" = true ]; then
+        # Check prerequisite: annotation must be complete
+        if ! check_annotation_complete; then
+            log_error "Cannot run IGV stage: Annotation not complete"
+            log_error "Run annotation first or use --annotate"
+            exit 1
+        fi
+
+        if [ "$force" = true ] || ! check_igv_complete; then
+            log_info ">>> STAGE 2: IGV SNAPSHOTS"
+
+            # Generate IGV snapshots from filtered variants
+            generate_igv_snapshots
+        else
+            log_info ">>> STAGE 2: IGV SNAPSHOTS [SKIPPED - already complete]"
+            log_info "    Use --force to re-run IGV snapshots"
+        fi
+    fi
+
+    # =========================================================================
+    # STAGE 3: HTML REPORTS
+    # =========================================================================
+    if [ "$run_html" = true ]; then
+        # Check prerequisite: annotation must be complete
+        if ! check_annotation_complete; then
+            log_error "Cannot run HTML stage: Annotation not complete"
+            log_error "Run annotation first or use --annotate"
+            exit 1
+        fi
+
+        if [ "$force" = true ] || ! check_html_complete; then
+            log_info ">>> STAGE 3: HTML REPORTS"
+
+            # Generate HTML reports from Excel files
+            generate_html_reports
+        else
+            log_info ">>> STAGE 3: HTML REPORTS [SKIPPED - already complete]"
+            log_info "    Use --force to re-run HTML reports"
+        fi
+    fi
 
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
@@ -700,6 +888,10 @@ main() {
     log_info "=========================================="
     log_info "######################## DONE #########################"
     log_info "Pipeline completed in ${duration}s"
+
+    # Show final status
+    show_status
+
     log_info "=========================================="
 }
 
