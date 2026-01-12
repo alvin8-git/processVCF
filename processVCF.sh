@@ -463,9 +463,12 @@ generate_igv_snapshots() {
                 continue
             fi
 
+            # Extract short sample ID (e.g., AML-452 from AML-452-KHK-TMSP_S1)
+            local short_sample=$(echo "$sample_name" | cut -d'-' -f1,2)
+
             # Create BED file from filtered variants (chr, start, end, name)
-            # Skip header line, extract chr (col1), pos (col2), create name from sample-gene-pos
-            awk -F"\t" -v sample="$sample_name" 'NR>1 && $1!="" {
+            # Skip header line, extract chr (col1), pos (col2), create name from short_sample-gene-pos
+            awk -F"\t" -v sample="$short_sample" 'NR>1 && $1!="" {
                 chr=$1; pos=$2; gene=$6;
                 if(gene=="") gene="variant";
                 print chr"\t"pos"\t"pos"\t"sample"-"gene"-"pos".png"
@@ -526,8 +529,11 @@ generate_igv_snapshots() {
                 continue
             fi
 
-            # Create BED file from filtered variants (include sample name in filename)
-            awk -F"\t" -v sample="$sample_name" 'NR>1 && $1!="" {
+            # Extract short sample ID (e.g., AML-452 from AML-452-KHK-CEBNX_S1)
+            local short_sample=$(echo "$sample_name" | cut -d'-' -f1,2)
+
+            # Create BED file from filtered variants (include short sample name in filename)
+            awk -F"\t" -v sample="$short_sample" 'NR>1 && $1!="" {
                 chr=$1; pos=$2; gene=$6;
                 if(gene=="") gene="variant";
                 print chr"\t"pos"\t"pos"\t"sample"-"gene"-"pos".png"

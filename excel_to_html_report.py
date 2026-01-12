@@ -1900,9 +1900,13 @@ document.querySelectorAll('.quick-nav-link').forEach(link => {
         gene = str(variant[6]) if len(variant) > 6 and variant[6] else 'Unknown'
         position = str(variant[2]) if len(variant) > 2 and variant[2] else ''
 
-        # Build screenshot filename (matches processVCF.sh naming convention: sample-gene-position.png)
+        # Extract short sample ID (e.g., AML-452 from AML-452-KHK-TMSP_S1)
+        parts = self.sample_name.split('-')
+        short_sample = '-'.join(parts[:2]) if len(parts) >= 2 else self.sample_name
+
+        # Build screenshot filename (matches processVCF.sh naming convention: short_sample-gene-position.png)
         if gene and position:
-            screenshot_filename = f"{self.sample_name}-{gene}-{position}.png"
+            screenshot_filename = f"{short_sample}-{gene}-{position}.png"
             screenshot_path = f"{snapshot_dir}/{screenshot_filename}"
         else:
             screenshot_filename = None
