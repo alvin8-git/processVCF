@@ -556,6 +556,40 @@ body {
     background: linear-gradient(180deg, #fef5e7 0%, #fdebd0 100%);
 }
 
+.panel.panel-igv {
+    border-left: 4px solid #8e44ad;
+}
+.panel.panel-igv .panel-header {
+    background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+    color: white;
+}
+.panel.panel-igv .panel-header:hover {
+    background: linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%);
+}
+.panel.panel-igv .panel-title {
+    color: white;
+    font-weight: 700;
+}
+.panel.panel-igv .panel-toggle {
+    color: rgba(255,255,255,0.8);
+}
+.panel.panel-igv .panel-content {
+    background: linear-gradient(180deg, #f5eef8 0%, #e8daef 100%);
+    text-align: center;
+}
+.panel.panel-igv .igv-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    margin: 10px 0;
+}
+.panel.panel-igv .igv-no-image {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 40px 20px;
+}
+
 /* Filter Bar */
 .filter-bar {
     background: white;
@@ -1109,16 +1143,19 @@ class VariantReportGenerator:
         # Panel 1: Basic Variant Information (cols 1-18)
         html += self._generate_basic_info_panel(variant)
 
-        # Panel 2: Sample Comparison (cols 19-22)
+        # Panel 2: IGV Screenshot
+        html += self._generate_igv_screenshot_panel(variant)
+
+        # Panel 3: Sample Comparison (cols 19-22)
         html += self._generate_sample_comparison_panel(variant)
 
-        # Panel 3: Additional Variant Information (cols 23-31)
+        # Panel 4: Additional Variant Information (cols 23-31)
         html += self._generate_additional_info_panel(variant)
 
-        # Panel 4: Population Databases (cols 32-89)
+        # Panel 5: Population Databases (cols 32-89)
         html += self._generate_population_panel(variant)
 
-        # Panel 5: Computational Scores (cols 90-154)
+        # Panel 6: Computational Scores (cols 90-154)
         html += self._generate_computational_panel(variant)
 
         html += """
@@ -1390,8 +1427,9 @@ class VariantReportGenerator:
             <div class="variant-card-content">
 """
 
-            # Add all 5 panels
+            # Add all 6 panels
             html += self._generate_basic_info_panel(variant)
+            html += self._generate_igv_screenshot_panel(variant)
             html += self._generate_sample_comparison_panel(variant)
             html += self._generate_additional_info_panel(variant)
             html += self._generate_population_panel(variant)
@@ -1509,6 +1547,49 @@ document.querySelectorAll('.quick-nav-link').forEach(link => {
 
         html += """
                 </div>
+            </div>
+        </div>
+"""
+        return html
+
+    def _generate_igv_screenshot_panel(self, variant: List, snapshot_dir: str = "../SnapShots") -> str:
+        """Generate IGV Screenshot panel"""
+        gene = str(variant[6]) if len(variant) > 6 and variant[6] else 'Unknown'
+        position = str(variant[2]) if len(variant) > 2 and variant[2] else ''
+
+        # Build screenshot filename (matches make_IGV_snapshots.py naming convention)
+        if gene and position:
+            screenshot_filename = f"{gene}-{position}.png"
+            screenshot_path = f"{snapshot_dir}/{screenshot_filename}"
+        else:
+            screenshot_filename = None
+            screenshot_path = None
+
+        html = """
+        <div class="panel panel-igv collapsed">
+            <div class="panel-header">
+                <h3 class="panel-title">IGV Screenshot</h3>
+                <span class="panel-toggle">&#9662;</span>
+            </div>
+            <div class="panel-content">
+"""
+
+        if screenshot_path:
+            html += f"""
+                <img src="{escape(screenshot_path)}" alt="IGV Screenshot for {escape(gene)} at position {escape(position)}"
+                     class="igv-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div class="igv-no-image" style="display: none;">
+                    Screenshot not available: {escape(screenshot_filename)}
+                </div>
+"""
+        else:
+            html += """
+                <div class="igv-no-image">
+                    No IGV screenshot available for this variant.
+                </div>
+"""
+
+        html += """
             </div>
         </div>
 """
