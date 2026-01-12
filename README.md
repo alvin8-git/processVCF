@@ -235,27 +235,30 @@ BED files used for snapshot generation are saved in `output/IgvBed/`.
 
 ### HTML Reports (`output/html_reports/`)
 
-Interactive HTML variant reports for each sample:
+Interactive HTML variant reports for each sample. Each sample generates a **single self-contained HTML file** with embedded variant detail pages (no separate files that could be overwritten between samples):
 
 ```
 html_reports/
-├── AML-453-ASR-TMSP_S3.html    # Dashboard with variant table
-├── variant_1.html              # Individual variant detail page
-├── variant_2.html
-└── ...
+├── AML-452-KHK-TMSP_S1.html    # Complete report with dashboard + all variants
+├── AML-453-ASR-TMSP_S3.html    # Each sample is independent
+├── AML-454-TLB-TMSP_S5.html
+└── MPN-184-THH-TMSP_S6.html
 ```
 
-**Dashboard Features:**
+**Dashboard View:**
 - Summary statistics (total variants, genes affected, tier counts)
 - Clickable stat cards for quick filtering
 - Filterable variant table by gene, classification, or search
-- Links to individual variant detail pages
+- Click "View Details" to see variant detail page
 
-**Variant Detail Pages:**
+**Variant Detail View:**
 - Gene name and HGVS notation prominently displayed
 - Color-coded CancerVar classification badges
-- 5 collapsible panels with color-coded headers:
+- "Back to Dashboard" button for easy navigation
+- Previous/Next buttons to browse between variants
+- 6 collapsible panels with color-coded headers:
   - **Basic Variant Information** (blue) - Position, genotype, VAF, COSMIC, CancerVar
+  - **IGV Screenshot** (purple) - BAM alignment visualization (if available)
   - **Sample Comparison** (green) - Comparison with reference databases
   - **Additional Information** (slate) - Consequence, exonic function, cytoBand
   - **Population Databases** (indigo) - Frequencies grouped by database (gnomAD, ExAC, 1000G, etc.)
@@ -430,16 +433,24 @@ MIT License
 
 ## Version History
 
+- v2.7 (2025-01): Embedded HTML reports and IGV screenshot panel
+  - HTML reports now generate single self-contained files per sample
+  - All variant detail pages embedded in one HTML (no separate variant_*.html files)
+  - Added JavaScript view switching between dashboard and variant details
+  - Added Previous/Next navigation between variants
+  - Added IGV Screenshot panel (purple) to variant detail pages
+  - Fixed issue where samples would overwrite each other's variant pages
 - v2.6 (2025-01): IGV snapshot automation
   - Added `make_IGV_snapshots.py` (Python 3) for batch IGV screenshots
   - Integrated IGV snapshot generation into processVCF.sh pipeline
   - Creates BED files from filtered variants automatically
   - Outputs to `output/SnapShots/` and `output/IgvBed/`
   - Uses xvfb-run for headless IGV execution
+  - Java 8 required for IGV 2.3.81 compatibility
 - v2.5 (2025-01): HTML variant report generation
   - Added `excel_to_html_report.py` for interactive HTML reports
   - Dashboard with filterable variant table
-  - Individual variant pages with 5 color-coded panels
+  - Individual variant pages with color-coded panels
   - CancerVar tier badges, ACMG criteria chips, prediction scores
   - Population frequencies grouped by database
 - v2.4 (2025-01): Added HTML report integration to processVCF.sh

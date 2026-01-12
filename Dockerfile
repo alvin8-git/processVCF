@@ -13,7 +13,7 @@ FROM ubuntu:22.04
 
 LABEL maintainer="Alvin Ng"
 LABEL description="VCF Processing Pipeline for TMSP and CEBPA panels"
-LABEL version="2.6"
+LABEL version="2.7"
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
