@@ -376,6 +376,181 @@ generate_html_reports() {
 }
 
 # =============================================================================
+# GENERATE IGV SNAPSHOTS
+# =============================================================================
+
+generate_igv_snapshots() {
+    log_info "######################## GENERATING IGV SNAPSHOTS #########################"
+
+    local output_dir="../output"
+    local igv_script="$SCRIPT_DIR/make_IGV_snapshots.py"
+    local igv_jar="$HOME/Software/IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar"
+    local bam_dir="../bam"
+
+    # Check if IGV snapshot script exists
+    if [ ! -f "$igv_script" ]; then
+        log_error "IGV snapshot script not found: $igv_script"
+        log_info "Skipping IGV snapshot generation..."
+        return 0
+    fi
+
+    # Check if IGV JAR exists
+    if [ ! -f "$igv_jar" ]; then
+        log_error "IGV JAR not found: $igv_jar"
+        log_info "Skipping IGV snapshot generation..."
+        return 0
+    fi
+
+    # Check if xvfb-run is available
+    if ! command -v xvfb-run &> /dev/null; then
+        log_error "xvfb-run not found, skipping IGV snapshot generation"
+        log_info "Install with: apt install xvfb"
+        return 0
+    fi
+
+    # Check if BAM directory exists
+    if [ ! -d "$bam_dir" ]; then
+        log_info "BAM directory not found ($bam_dir), skipping IGV snapshots..."
+        return 0
+    fi
+
+    cd "$output_dir"
+
+    # Create IgvBed and SnapShots directories
+    mkdir -p IgvBed SnapShots
+
+    local snapshot_count=0
+
+    # Process TMSP filtered files
+    if [ -d annotationTMSP ]; then
+        for filter_file in $(ls annotationTMSP/*.Filter.txt 2>/dev/null); do
+            local sample_name=$(basename "$filter_file" .Filter.txt)
+            local bed_file="IgvBed/${sample_name}.bed"
+
+            # Find matching BAM file (try different naming patterns)
+            local bam_file=""
+            for pattern in "$bam_dir/${sample_name}"*.bam "$bam_dir/"*"${sample_name}"*.bam; do
+                if [ -f "$pattern" ]; then
+                    bam_file="$pattern"
+                    break
+                fi
+            done
+
+            if [ -z "$bam_file" ] || [ ! -f "$bam_file" ]; then
+                log_info "No BAM file found for $sample_name, skipping..."
+                continue
+            fi
+
+            # Create BED file from filtered variants (chr, start, end, name)
+            # Skip header line, extract chr (col1), pos (col2), create name from gene+pos
+            awk -F"\t" 'NR>1 && $1!="" {
+                chr=$1; pos=$2; gene=$6;
+                if(gene=="") gene="variant";
+                print chr"\t"pos"\t"pos"\t"gene"-"pos".png"
+            }' "$filter_file" > "$bed_file"
+
+            # Check if BED file has any variants
+            if [ ! -s "$bed_file" ]; then
+                log_info "No variants in $sample_name, skipping IGV..."
+                rm -f "$bed_file"
+                continue
+            fi
+
+            local variant_count=$(wc -l < "$bed_file")
+            log_info "Generating IGV snapshots for $sample_name ($variant_count variants)..."
+
+            # Run IGV snapshot script
+            python3 "$igv_script" "$bam_file" \
+                -r "$bed_file" \
+                -o "SnapShots" \
+                -bin "$igv_jar" \
+                -suffix "$sample_name" \
+                -nf4 \
+                -ht 500 \
+                -mem 4000 2>&1 | while read line; do
+                    echo "    $line"
+                done
+
+            if [ ${PIPESTATUS[0]} -eq 0 ]; then
+                snapshot_count=$((snapshot_count + 1))
+                log_info "  -> Generated snapshots in SnapShots/"
+            else
+                log_error "  -> Failed to generate snapshots for $sample_name"
+            fi
+        done
+    fi
+
+    # Process CEBNX filtered files
+    if [ -d annotationCEBNX ]; then
+        for filter_file in $(ls annotationCEBNX/*.Filter.txt 2>/dev/null); do
+            local sample_name=$(basename "$filter_file" .Filter.txt)
+            local bed_file="IgvBed/${sample_name}.bed"
+
+            # Find matching BAM file in cebpa/bam directory
+            local bam_file=""
+            local cebpa_bam_dir="../cebpa/bam"
+            if [ -d "$cebpa_bam_dir" ]; then
+                for pattern in "$cebpa_bam_dir/${sample_name}"*.bam "$cebpa_bam_dir/"*"${sample_name}"*.bam; do
+                    if [ -f "$pattern" ]; then
+                        bam_file="$pattern"
+                        break
+                    fi
+                done
+            fi
+
+            if [ -z "$bam_file" ] || [ ! -f "$bam_file" ]; then
+                log_info "No BAM file found for $sample_name (CEBNX), skipping..."
+                continue
+            fi
+
+            # Create BED file from filtered variants
+            awk -F"\t" 'NR>1 && $1!="" {
+                chr=$1; pos=$2; gene=$6;
+                if(gene=="") gene="variant";
+                print chr"\t"pos"\t"pos"\t"gene"-"pos".png"
+            }' "$filter_file" > "$bed_file"
+
+            if [ ! -s "$bed_file" ]; then
+                log_info "No variants in $sample_name (CEBNX), skipping IGV..."
+                rm -f "$bed_file"
+                continue
+            fi
+
+            local variant_count=$(wc -l < "$bed_file")
+            log_info "Generating IGV snapshots for $sample_name ($variant_count variants)..."
+
+            python3 "$igv_script" "$bam_file" \
+                -r "$bed_file" \
+                -o "SnapShots" \
+                -bin "$igv_jar" \
+                -suffix "$sample_name" \
+                -nf4 \
+                -ht 500 \
+                -mem 4000 2>&1 | while read line; do
+                    echo "    $line"
+                done
+
+            if [ ${PIPESTATUS[0]} -eq 0 ]; then
+                snapshot_count=$((snapshot_count + 1))
+                log_info "  -> Generated snapshots in SnapShots/"
+            else
+                log_error "  -> Failed to generate snapshots for $sample_name"
+            fi
+        done
+    fi
+
+    cd - > /dev/null
+
+    if [ $snapshot_count -gt 0 ]; then
+        log_info "Generated IGV snapshots for $snapshot_count sample(s)"
+        log_info "Snapshots available at: $output_dir/SnapShots/"
+        log_info "BED files available at: $output_dir/IgvBed/"
+    else
+        log_info "No IGV snapshots generated (no matching BAM files or variants)"
+    fi
+}
+
+# =============================================================================
 # MAIN FUNCTION
 # =============================================================================
 
@@ -398,7 +573,7 @@ main() {
                 log_info "Checking dependencies..."
                 echo ""
                 echo "System tools:"
-                for cmd in bcftools parallel rename perl awk java python3 transvar vep bgzip tabix vcf-merge vcf-sort; do
+                for cmd in bcftools parallel rename perl awk java python3 transvar vep bgzip tabix vcf-merge vcf-sort xvfb-run; do
                     if command -v "$cmd" &> /dev/null; then
                         echo "  $cmd: OK"
                     else
@@ -407,7 +582,7 @@ main() {
                 done
                 echo ""
                 echo "Local scripts (in $SCRIPT_DIR):"
-                for script in writeTMSPtoXLS.pl write1WStoXLS.pl mergeVCFannotation-optimized.sh excel_to_html_report.py; do
+                for script in writeTMSPtoXLS.pl write1WStoXLS.pl mergeVCFannotation-optimized.sh excel_to_html_report.py make_IGV_snapshots.py; do
                     if [ -f "$SCRIPT_DIR/$script" ]; then
                         echo "  $script: OK"
                     else
@@ -425,6 +600,14 @@ main() {
                 echo "Integrated functions:"
                 echo "  vcf_stats: OK (built-in)"
                 echo "  filter_anno: OK (built-in)"
+                echo ""
+                echo "IGV Snapshots:"
+                local igv_jar="$HOME/Software/IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar"
+                if [ -f "$igv_jar" ]; then
+                    echo "  IGV JAR: OK ($igv_jar)"
+                else
+                    echo "  IGV JAR: MISSING ($igv_jar)"
+                fi
                 echo ""
                 echo "Databases:"
                 for db in "$HOME/Databases/TMSPvcf/TSMPclean" "$HOME/Databases/TMSPvcf/CEBPA" "$HOME/Databases/humandb" "$HOME/Databases/vep"; do
@@ -471,6 +654,9 @@ main() {
 
     # Generate HTML reports from Excel files
     generate_html_reports
+
+    # Generate IGV snapshots from filtered variants
+    generate_igv_snapshots
 
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))

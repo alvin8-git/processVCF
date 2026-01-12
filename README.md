@@ -19,6 +19,7 @@ processVCF/
 ├── processVCF.sh                    # Main pipeline script (includes vcf_stats & filter_anno)
 ├── mergeVCFannotation-optimized.sh  # Optimized annotation engine (includes Excel writers)
 ├── excel_to_html_report.py          # HTML variant report generator
+├── make_IGV_snapshots.py            # IGV snapshot automator (Python 3)
 ├── Dockerfile                       # Docker container build file
 ├── docker-compose.yml               # Docker Compose configuration
 └── README.md                        # This file
@@ -45,6 +46,7 @@ The following tools must be installed and in your PATH:
 | tabix | TAB-delimited file indexing |
 | vcf-merge | VCF merging (vcftools) |
 | vcf-sort | VCF sorting (vcftools) |
+| xvfb-run | Virtual X server for IGV (apt install xvfb) |
 
 ### Perl Modules
 
@@ -64,6 +66,7 @@ These should be installed in `$HOME/Software/`:
 - `annovar/` - ANNOVAR annotation tool
 - `snpEff/` - snpEff annotation tool
 - `CancerVar/` - CancerVar annotation tool
+- `IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar` - IGV for snapshots
 
 ### Databases
 
@@ -181,6 +184,22 @@ Same structure as TMSP, but:
 - Comparison databases: Clinical, AD, CAP, MOLM14
 - No Summary.txt/Summary.xlsx generated
 
+### IGV Snapshots (`output/SnapShots/`)
+
+Automatically generated IGV snapshots for filtered variants:
+- PNG images for each variant position
+- Created using xvfb-run (virtual X display)
+- Requires BAM files in `../bam/` directory
+
+```
+SnapShots/
+├── SAMPLE1-TP53-12345.png
+├── SAMPLE1-FLT3-54321.png
+└── ...
+```
+
+BED files used for snapshot generation are saved in `output/IgvBed/`.
+
 ### HTML Reports (`output/html_reports/`)
 
 Interactive HTML variant reports for each sample:
@@ -251,6 +270,41 @@ The optimized pipeline runs annotation tools in parallel:
 
 Typical runtime: ~10-15 minutes for 4-5 samples (vs ~18+ minutes sequential)
 
+## Standalone IGV Snapshot Generation
+
+The IGV snapshot script can be used independently:
+
+```bash
+# Generate snapshots for all variants in a BED file
+python3 make_IGV_snapshots.py sample.bam -r variants.bed -o SnapShots -bin /path/to/igv.jar
+
+# Use 4th BED column as snapshot filename
+python3 make_IGV_snapshots.py sample.bam -r variants.bed -o SnapShots -bin igv.jar -nf4
+
+# Only generate batchscript without running IGV
+python3 make_IGV_snapshots.py sample.bam -r variants.bed -o SnapShots -bin igv.jar -nosnap
+```
+
+### IGV Command Line Options
+
+```
+positional arguments:
+  input_files           Input files (BAM, bigwig, etc.)
+
+optional arguments:
+  -r REGION_FILE        BED file with regions (default: regions.bed)
+  -g GENOME             Reference genome (default: hg19)
+  -ht IMAGE_HEIGHT      Track height in pixels (default: 500)
+  -o OUTDIR             Output directory (default: IGV_Snapshots)
+  -bin IGV_JAR_BIN      Path to IGV jar file
+  -mem IGV_MEM          Memory for IGV in MB (default: 4000)
+  -nosnap               Only write batchscript, don't run IGV
+  -suffix SUFFIX        Filename suffix for snapshots
+  -nf4                  Use 4th BED field as snapshot filename
+  -onlysnap ONLYSNAP    Run existing batchscript file
+  -s, --group-by-strand Group reads by strand
+```
+
 ## Standalone HTML Report Generation
 
 The HTML report generator can be used independently on any Excel file from the pipeline:
@@ -298,9 +352,10 @@ optional arguments:
 
 | File | Description |
 |------|-------------|
-| `processVCF.sh` | Main orchestration script with integrated vcf_stats and filter_anno functions |
+| `processVCF.sh` | Main orchestration script with integrated vcf_stats, filter_anno, HTML, and IGV functions |
 | `mergeVCFannotation-optimized.sh` | Core annotation engine with parallel execution, integrated Excel writers |
 | `excel_to_html_report.py` | Converts Excel reports to interactive HTML variant reports |
+| `make_IGV_snapshots.py` | IGV snapshot automator for batch screenshot generation (Python 3) |
 | `Dockerfile` | Docker container build file with all required tools |
 | `docker-compose.yml` | Docker Compose configuration for easy deployment |
 
@@ -334,6 +389,12 @@ MIT License
 
 ## Version History
 
+- v2.6 (2025-01): IGV snapshot automation
+  - Added `make_IGV_snapshots.py` (Python 3) for batch IGV screenshots
+  - Integrated IGV snapshot generation into processVCF.sh pipeline
+  - Creates BED files from filtered variants automatically
+  - Outputs to `output/SnapShots/` and `output/IgvBed/`
+  - Uses xvfb-run for headless IGV execution
 - v2.5 (2025-01): HTML variant report generation
   - Added `excel_to_html_report.py` for interactive HTML reports
   - Dashboard with filterable variant table
