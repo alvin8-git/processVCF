@@ -384,8 +384,9 @@ generate_igv_snapshots() {
 
     local output_dir="../output"
     local igv_script="$SCRIPT_DIR/make_IGV_snapshots.py"
-    local igv_jar="$HOME/Software/IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar"
-    local java8_path="/usr/lib/jvm/java-8-openjdk-amd64/bin/java"
+    # Use environment variables if set (Docker), otherwise use default paths
+    local igv_jar="${IGV_JAR:-$HOME/Software/IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar}"
+    local java8_path="${JAVA8_PATH:-/usr/lib/jvm/java-8-openjdk-amd64/bin/java}"
     local bam_dir="../bam"
 
     # Check if IGV snapshot script exists
@@ -612,8 +613,8 @@ main() {
                 echo "  filter_anno: OK (built-in)"
                 echo ""
                 echo "IGV Snapshots:"
-                local igv_jar="$HOME/Software/IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar"
-                local java8="/usr/lib/jvm/java-8-openjdk-amd64/bin/java"
+                local igv_jar="${IGV_JAR:-$HOME/Software/IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar}"
+                local java8="${JAVA8_PATH:-/usr/lib/jvm/java-8-openjdk-amd64/bin/java}"
                 if [ -f "$igv_jar" ]; then
                     echo "  IGV JAR: OK ($igv_jar)"
                 else

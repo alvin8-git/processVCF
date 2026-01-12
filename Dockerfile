@@ -13,7 +13,7 @@ FROM ubuntu:22.04
 
 LABEL maintainer="Alvin Ng"
 LABEL description="VCF Processing Pipeline for TMSP and CEBPA panels"
-LABEL version="2.1"
+LABEL version="2.6"
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -51,6 +51,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     openjdk-11-jre-headless \
+    openjdk-8-jre-headless \
+    # IGV dependencies (headless display)
+    xvfb \
+    libxrender1 \
+    libxtst6 \
+    libxi6 \
     # Parallel processing
     parallel \
     # Compression
@@ -82,10 +88,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN cpanm --notest Excel::Writer::XLSX
 
 # =============================================================================
-# PYTHON PACKAGES (TransVar)
+# PYTHON PACKAGES (TransVar, openpyxl for HTML reports)
 # =============================================================================
 
-RUN pip3 install --no-cache-dir transvar
+RUN pip3 install --no-cache-dir transvar openpyxl
 
 # Configure TransVar with hg19 reference
 RUN mkdir -p /home/$USERNAME/.transvar.cfg.d
@@ -126,6 +132,22 @@ RUN mkdir -p /home/$USERNAME/Databases/snpEff && \
 COPY --chown=$USERNAME:$USERNAME CancerVar/ /home/$USERNAME/Software/CancerVar/
 
 # =============================================================================
+# IGV (Integrative Genomics Viewer) for snapshots
+# =============================================================================
+# IGV 2.3.81 requires Java 8 - using openjdk-8-jre-headless
+
+RUN mkdir -p /home/$USERNAME/Software/IGV && \
+    cd /home/$USERNAME/Software/IGV && \
+    wget -q https://data.broadinstitute.org/igv/projects/downloads/2.3/IGV_2.3.81.zip && \
+    unzip -q IGV_2.3.81.zip && \
+    rm IGV_2.3.81.zip && \
+    chown -R $USERNAME:$USERNAME /home/$USERNAME/Software/IGV
+
+# Set Java 8 path for IGV
+ENV JAVA8_PATH=/usr/lib/jvm/java-8-openjdk-amd64/bin/java
+ENV IGV_JAR=/home/$USERNAME/Software/IGV/IGV_2.3.81/igv.jar
+
+# =============================================================================
 # VEP (Ensembl Variant Effect Predictor)
 # =============================================================================
 # VEP software is included in the image
@@ -145,8 +167,10 @@ RUN mkdir -p /home/$USERNAME/Databases/vep && \
 
 COPY --chown=$USERNAME:$USERNAME processVCF.sh /home/$USERNAME/Scripts/
 COPY --chown=$USERNAME:$USERNAME mergeVCFannotation-optimized.sh /home/$USERNAME/Scripts/
+COPY --chown=$USERNAME:$USERNAME make_IGV_snapshots.py /home/$USERNAME/Scripts/
+COPY --chown=$USERNAME:$USERNAME excel_to_html_report.py /home/$USERNAME/Scripts/
 
-RUN chmod +x /home/$USERNAME/Scripts/*.sh
+RUN chmod +x /home/$USERNAME/Scripts/*.sh /home/$USERNAME/Scripts/*.py
 
 # =============================================================================
 # ENVIRONMENT VARIABLES

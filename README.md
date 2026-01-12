@@ -372,11 +372,13 @@ The Docker container includes:
 - bcftools, tabix, vcftools
 - GNU Parallel
 - Perl with Excel::Writer::XLSX
-- Java (OpenJDK 11)
-- Python 3 with TransVar
+- Java (OpenJDK 8 for IGV, OpenJDK 11 for other tools)
+- Python 3 with TransVar and openpyxl
 - ANNOVAR (scripts only)
 - snpEff 5.0e
 - CancerVar
+- IGV 2.3.81 with xvfb for headless snapshots
+- HTML report generator
 
 **Note:** VEP and databases must be mounted at runtime due to their large size.
 
