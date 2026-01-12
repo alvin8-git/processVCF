@@ -969,17 +969,360 @@ class VariantReportGenerator:
         print(f"Loaded {len(self.variants)} variants from {self.excel_path.name}")
 
     def generate_all(self):
-        """Generate dashboard and all variant pages"""
+        """Generate single HTML file with dashboard and embedded variant pages"""
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Generate dashboard
-        self.generate_dashboard()
+        # Generate single embedded HTML file
+        self.generate_embedded_report()
 
-        # Generate individual variant pages
+        print(f"Generated HTML report: {self.output_dir / f'{self.sample_name}.html'}")
+
+    def generate_embedded_report(self):
+        """Generate single HTML file with dashboard and embedded variant detail pages"""
+        # Collect stats
+        genes = set()
+        tiers = {'tier-i': 0, 'tier-ii': 0, 'tier-iii': 0, 'tier-iv': 0, 'unknown': 0}
+
+        for variant in self.variants:
+            genes.add(variant[6] if len(variant) > 6 else 'Unknown')
+            _, tier_class = parse_cancervar(variant[18] if len(variant) > 18 else '')
+            tiers[tier_class] = tiers.get(tier_class, 0) + 1
+
+        # Additional CSS for embedded view switching
+        embedded_css = """
+/* View switching */
+.view-section {
+    display: none;
+}
+
+.view-section.active {
+    display: block;
+}
+
+/* Variant detail header with back button */
+.variant-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.back-btn:hover {
+    background: var(--secondary-color);
+    color: white;
+    border-color: var(--secondary-color);
+}
+
+.back-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* View Details link styling */
+.view-details-link {
+    color: var(--secondary-color);
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.view-details-link:hover {
+    text-decoration: underline;
+}
+
+/* Navigation between variants */
+.variant-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: var(--light-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.nav-btn:hover {
+    background: var(--secondary-color);
+    color: white;
+    border-color: var(--secondary-color);
+}
+
+.nav-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.nav-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.variant-counter {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+"""
+
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variant Report - {escape(self.sample_name)}</title>
+    <style>
+{get_css_styles()}
+{embedded_css}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Variant Analysis Report</h1>
+            <div class="subtitle">Sample: {escape(self.sample_name)}</div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="view-section active">
+            <div class="dashboard-stats">
+                <div class="stat-card clickable" data-action="clear-filters" title="Click to clear all filters">
+                    <div class="stat-value" id="visibleCount">{len(self.variants)}</div>
+                    <div class="stat-label">Total Variants</div>
+                </div>
+                <div class="stat-card clickable" data-action="focus-gene" title="Click to focus on gene filter">
+                    <div class="stat-value" style="color: var(--secondary-color);">{len(genes)}</div>
+                    <div class="stat-label">Genes Affected</div>
+                </div>
+                <div class="stat-card clickable" data-tier="tier-i" title="Click to filter Tier I variants">
+                    <div class="stat-value" style="color: var(--tier1-color);">{tiers.get('tier-i', 0)}</div>
+                    <div class="stat-label">Tier I (Strong)</div>
+                </div>
+                <div class="stat-card clickable" data-tier="tier-ii" title="Click to filter Tier II variants">
+                    <div class="stat-value" style="color: var(--tier2-color);">{tiers.get('tier-ii', 0)}</div>
+                    <div class="stat-label">Tier II (Potential)</div>
+                </div>
+            </div>
+
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label class="filter-label">Search</label>
+                    <input type="text" id="searchInput" class="filter-input" placeholder="Search variants...">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Gene</label>
+                    <select id="geneFilter" class="filter-select">
+                        <option value="">All Genes</option>
+                        {''.join(f'<option value="{escape(str(g))}">{escape(str(g))}</option>' for g in sorted(genes))}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Classification</label>
+                    <select id="tierFilter" class="filter-select">
+                        <option value="">All Classifications</option>
+                        <option value="tier-i">Tier I - Strong</option>
+                        <option value="tier-ii">Tier II - Potential</option>
+                        <option value="tier-iii">Tier III - Unknown</option>
+                        <option value="tier-iv">Tier IV - Benign</option>
+                    </select>
+                </div>
+            </div>
+
+            <table class="variant-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Gene</th>
+                        <th>Variant</th>
+                        <th>HGVSc</th>
+                        <th>HGVSp</th>
+                        <th>VAF</th>
+                        <th>Classification</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+"""
+
         for idx, variant in enumerate(self.variants):
-            self.generate_variant_page(idx, variant)
+            gene = escape(str(variant[6])) if len(variant) > 6 and variant[6] else '-'
+            chr_pos = f"{variant[1]}:{variant[2]}" if len(variant) > 2 else '-'
+            ref_alt = f"{variant[3]}>{variant[4]}" if len(variant) > 4 else '-'
+            hgvsc = escape(str(variant[9])) if len(variant) > 9 and variant[9] else '-'
+            hgvsp = escape(str(variant[10])) if len(variant) > 10 and variant[10] else '-'
+            vaf = f"{float(variant[14])*100:.1f}%" if len(variant) > 14 and variant[14] else '-'
 
-        print(f"Generated HTML reports in {self.output_dir}")
+            tier_text, tier_class = parse_cancervar(variant[18] if len(variant) > 18 else '')
+
+            html += f"""
+                    <tr class="variant-row" data-gene="{gene}" data-tier="{tier_class}">
+                        <td>{idx + 1}</td>
+                        <td class="gene">{gene}</td>
+                        <td style="font-family: monospace;">{escape(chr_pos)} {escape(ref_alt)}</td>
+                        <td style="font-family: monospace;">{hgvsc}</td>
+                        <td style="font-family: monospace;">{hgvsp}</td>
+                        <td>{vaf}</td>
+                        <td><span class="classification-badge {tier_class}">{escape(tier_text)}</span></td>
+                        <td><a class="view-details-link" onclick="showVariant({idx + 1})">View Details</a></td>
+                    </tr>
+"""
+
+        html += """
+                </tbody>
+            </table>
+        </div>
+
+"""
+
+        # Generate embedded variant detail sections
+        for idx, variant in enumerate(self.variants):
+            html += self._generate_embedded_variant_section(idx, variant, len(self.variants))
+
+        # Close container and add JavaScript
+        html += """
+    </div>
+    <script>
+""" + get_javascript() + """
+
+// View switching functions
+function showVariant(idx) {
+    // Hide dashboard
+    document.getElementById('dashboard-view').classList.remove('active');
+
+    // Hide all variant views
+    document.querySelectorAll('.variant-view').forEach(v => v.classList.remove('active'));
+
+    // Show selected variant
+    document.getElementById('variant-view-' + idx).classList.add('active');
+
+    // Scroll to top
+    window.scrollTo(0, 0);
+}
+
+function showDashboard() {
+    // Hide all variant views
+    document.querySelectorAll('.variant-view').forEach(v => v.classList.remove('active'));
+
+    // Show dashboard
+    document.getElementById('dashboard-view').classList.add('active');
+
+    // Scroll to top
+    window.scrollTo(0, 0);
+}
+
+function navigateVariant(currentIdx, direction) {
+    const totalVariants = document.querySelectorAll('.variant-view').length;
+    let newIdx = currentIdx + direction;
+
+    if (newIdx >= 1 && newIdx <= totalVariants) {
+        showVariant(newIdx);
+    }
+}
+    </script>
+</body>
+</html>
+"""
+
+        with open(self.output_dir / f'{self.sample_name}.html', 'w', encoding='utf-8') as f:
+            f.write(html)
+
+    def _generate_embedded_variant_section(self, idx: int, variant: List, total_variants: int) -> str:
+        """Generate embedded variant detail section for single-file report"""
+        gene = str(variant[6]) if len(variant) > 6 and variant[6] else 'Unknown'
+        hgvsc = str(variant[9]) if len(variant) > 9 and variant[9] else ''
+        hgvsp = str(variant[10]) if len(variant) > 10 and variant[10] else ''
+        tier_text, tier_class = parse_cancervar(variant[18] if len(variant) > 18 else '')
+
+        # Build variant notation
+        variant_notation = f"{hgvsc}"
+        if hgvsp:
+            variant_notation += f" ({hgvsp})"
+
+        # Navigation button states
+        prev_disabled = 'disabled' if idx == 0 else ''
+        next_disabled = 'disabled' if idx == len(self.variants) - 1 else ''
+
+        html = f"""
+        <!-- Variant {idx + 1} Detail View -->
+        <div id="variant-view-{idx + 1}" class="view-section variant-view">
+            <div class="variant-detail-header">
+                <button class="back-btn" onclick="showDashboard()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    Back to Dashboard
+                </button>
+            </div>
+
+            <div class="gene-hero">
+                <div>
+                    <h1 class="gene-name">{escape(gene)}</h1>
+                    <div class="variant-notation">{escape(variant_notation)}</div>
+                </div>
+                <div>
+                    <span class="classification-badge {tier_class}">{escape(tier_text)}</span>
+                </div>
+            </div>
+"""
+
+        # Add all 6 panels
+        html += self._generate_basic_info_panel(variant)
+        html += self._generate_igv_screenshot_panel(variant)
+        html += self._generate_sample_comparison_panel(variant)
+        html += self._generate_additional_info_panel(variant)
+        html += self._generate_population_panel(variant)
+        html += self._generate_computational_panel(variant)
+
+        # Add navigation between variants
+        html += f"""
+            <div class="variant-nav">
+                <button class="nav-btn {prev_disabled}" onclick="navigateVariant({idx + 1}, -1)">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Previous
+                </button>
+                <span class="variant-counter">Variant {idx + 1} of {total_variants}</span>
+                <button class="nav-btn {next_disabled}" onclick="navigateVariant({idx + 1}, 1)">
+                    Next
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+"""
+        return html
 
     def generate_dashboard(self):
         """Generate the dashboard landing page"""
