@@ -1066,7 +1066,7 @@ class VariantReportGenerator:
 </html>
 """
 
-        with open(self.output_dir / 'index.html', 'w', encoding='utf-8') as f:
+        with open(self.output_dir / f'{self.sample_name}.html', 'w', encoding='utf-8') as f:
             f.write(html)
 
     def generate_variant_page(self, idx: int, variant: List):
@@ -1092,7 +1092,7 @@ class VariantReportGenerator:
 <body>
     <div class="container">
         <div class="breadcrumb">
-            <a href="index.html">Dashboard</a> &rarr; Variant {idx + 1}: {escape(gene)}
+            <a href="{self.sample_name}.html">Dashboard</a> &rarr; Variant {idx + 1}: {escape(gene)}
         </div>
 
         <div class="gene-hero">
@@ -1872,11 +1872,11 @@ Examples:
         # Also generate multi-page if output_dir was specified
         if args.output_dir:
             generator.generate_all()
-            print(f"\nOpen {generator.output_dir / 'index.html'} for multi-page view.")
+            print(f"\nOpen {generator.output_dir / generator.sample_name}.html for multi-page view.")
     else:
         # Generate multi-page report only
         generator.generate_all()
-        print(f"\nOpen {generator.output_dir / 'index.html'} in a browser to view the report.")
+        print(f"\nOpen {generator.output_dir / generator.sample_name}.html in a browser to view the report.")
 
 
 if __name__ == '__main__':

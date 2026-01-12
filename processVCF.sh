@@ -337,8 +337,8 @@ generate_html_reports() {
 
         local sample_name=$(basename "$xlsx" .xlsx)
 
-        # Generate single-page report (sample_name.html)
-        python3 "$html_script" "$xlsx" --single-page -o "html_reports/${sample_name}.html"
+        # Generate dashboard + variant pages in html_reports directory
+        python3 "$html_script" "$xlsx" "html_reports"
 
         if [ $? -eq 0 ]; then
             xlsx_count=$((xlsx_count + 1))
@@ -354,8 +354,8 @@ generate_html_reports() {
 
         local sample_name=$(basename "$xlsx" .xlsx)
 
-        # Generate single-page report (sample_name.html)
-        python3 "$html_script" "$xlsx" --single-page -o "html_reports/${sample_name}.html"
+        # Generate dashboard + variant pages in html_reports directory
+        python3 "$html_script" "$xlsx" "html_reports"
 
         if [ $? -eq 0 ]; then
             xlsx_count=$((xlsx_count + 1))
