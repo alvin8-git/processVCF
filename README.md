@@ -1,6 +1,6 @@
 # processVCF Pipeline
 
-A self-contained VCF processing pipeline for TMSP and CEBPA/CEBNX panels. This pipeline automates variant annotation, filtering, and Excel report generation.
+A self-contained VCF processing pipeline for TMSP and CEBPA/CEBNX panels. This pipeline automates variant annotation, filtering, Excel report generation, and interactive HTML variant reports.
 
 ## Overview
 
@@ -10,6 +10,7 @@ This pipeline:
 - Compares variants against reference databases (Clinical, AD, LRM/CAP, NA12878/MOLM14)
 - Annotates with population frequencies (SG10K, GenomeAsia)
 - Generates filtered Excel reports for each sample
+- Generates interactive HTML variant reports with clinical-grade visualization
 
 ## Directory Structure
 
@@ -17,6 +18,7 @@ This pipeline:
 processVCF/
 ├── processVCF.sh                    # Main pipeline script (includes vcf_stats & filter_anno)
 ├── mergeVCFannotation-optimized.sh  # Optimized annotation engine (includes Excel writers)
+├── excel_to_html_report.py          # HTML variant report generator
 ├── Dockerfile                       # Docker container build file
 ├── docker-compose.yml               # Docker Compose configuration
 └── README.md                        # This file
@@ -48,6 +50,12 @@ The following tools must be installed and in your PATH:
 
 ```bash
 cpan install Excel::Writer::XLSX
+```
+
+### Python Modules
+
+```bash
+pip install openpyxl
 ```
 
 ### Software Directories
@@ -173,6 +181,34 @@ Same structure as TMSP, but:
 - Comparison databases: Clinical, AD, CAP, MOLM14
 - No Summary.txt/Summary.xlsx generated
 
+### HTML Reports (`output/html_reports/`)
+
+Interactive HTML variant reports for each sample:
+
+```
+html_reports/
+├── AML-453-ASR-TMSP_S3.html    # Dashboard with variant table
+├── variant_1.html              # Individual variant detail page
+├── variant_2.html
+└── ...
+```
+
+**Dashboard Features:**
+- Summary statistics (total variants, genes affected, tier counts)
+- Clickable stat cards for quick filtering
+- Filterable variant table by gene, classification, or search
+- Links to individual variant detail pages
+
+**Variant Detail Pages:**
+- Gene name and HGVS notation prominently displayed
+- Color-coded CancerVar classification badges
+- 5 collapsible panels with color-coded headers:
+  - **Basic Variant Information** (blue) - Position, genotype, VAF, COSMIC, CancerVar
+  - **Sample Comparison** (green) - Comparison with reference databases
+  - **Additional Information** (slate) - Consequence, exonic function, cytoBand
+  - **Population Databases** (indigo) - Frequencies grouped by database (gnomAD, ExAC, 1000G, etc.)
+  - **Computational Predictions** (orange) - ACMG criteria chips, prediction scores, ClinVar
+
 ## Processing Modes
 
 ### TMSP Mode
@@ -215,6 +251,35 @@ The optimized pipeline runs annotation tools in parallel:
 
 Typical runtime: ~10-15 minutes for 4-5 samples (vs ~18+ minutes sequential)
 
+## Standalone HTML Report Generation
+
+The HTML report generator can be used independently on any Excel file from the pipeline:
+
+```bash
+# Generate dashboard + variant pages
+python3 excel_to_html_report.py sample.xlsx output_dir/
+
+# Generate single-page report (all variants on one page)
+python3 excel_to_html_report.py sample.xlsx --single-page
+
+# Generate single-page to specific file
+python3 excel_to_html_report.py sample.xlsx --single-page -o report.html
+```
+
+### Command Line Options
+
+```
+usage: excel_to_html_report.py [-h] [--single-page] [--output OUTPUT] excel_file [output_dir]
+
+positional arguments:
+  excel_file            Input Excel file (.xlsx)
+  output_dir            Output directory for multi-page reports
+
+optional arguments:
+  --single-page, -s     Generate a single HTML page with all variants
+  --output, -o OUTPUT   Output file path for single-page report
+```
+
 ## Troubleshooting
 
 ### Check Dependencies
@@ -235,6 +300,7 @@ Typical runtime: ~10-15 minutes for 4-5 samples (vs ~18+ minutes sequential)
 |------|-------------|
 | `processVCF.sh` | Main orchestration script with integrated vcf_stats and filter_anno functions |
 | `mergeVCFannotation-optimized.sh` | Core annotation engine with parallel execution, integrated Excel writers |
+| `excel_to_html_report.py` | Converts Excel reports to interactive HTML variant reports |
 | `Dockerfile` | Docker container build file with all required tools |
 | `docker-compose.yml` | Docker Compose configuration for easy deployment |
 
@@ -268,6 +334,14 @@ MIT License
 
 ## Version History
 
+- v2.5 (2025-01): HTML variant report generation
+  - Added `excel_to_html_report.py` for interactive HTML reports
+  - Dashboard with filterable variant table
+  - Individual variant pages with 5 color-coded panels
+  - CancerVar tier badges, ACMG criteria chips, prediction scores
+  - Population frequencies grouped by database
+- v2.4 (2025-01): Added HTML report integration to processVCF.sh
+- v2.3 (2025-01): Added ANNOVAR, snpEff, CancerVar for Docker build
 - v2.2 (2025-01): Docker support, integrated Excel writers into main scripts
 - v2.1 (2025-01): Integrated VCFstats and filterAnno functions into main scripts
 - v2.0 (2025-01): Optimized parallel pipeline, combined TMSP/CEBPA support
