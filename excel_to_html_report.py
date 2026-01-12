@@ -1900,9 +1900,9 @@ document.querySelectorAll('.quick-nav-link').forEach(link => {
         gene = str(variant[6]) if len(variant) > 6 and variant[6] else 'Unknown'
         position = str(variant[2]) if len(variant) > 2 and variant[2] else ''
 
-        # Build screenshot filename (matches make_IGV_snapshots.py naming convention)
+        # Build screenshot filename (matches processVCF.sh naming convention: sample-gene-position.png)
         if gene and position:
-            screenshot_filename = f"{gene}-{position}.png"
+            screenshot_filename = f"{self.sample_name}-{gene}-{position}.png"
             screenshot_path = f"{snapshot_dir}/{screenshot_filename}"
         else:
             screenshot_filename = None
@@ -2246,6 +2246,313 @@ document.querySelectorAll('.quick-nav-link').forEach(link => {
         return html
 
 
+def generate_summary_html(html_dir: str, output_file: str = None):
+    """Generate Summary.html dashboard linking to all sample reports"""
+    html_path = Path(html_dir)
+
+    if output_file is None:
+        output_file = html_path / 'Summary.html'
+    else:
+        output_file = Path(output_file)
+
+    # Find all sample HTML files (exclude Summary.html itself)
+    sample_files = sorted([f for f in html_path.glob('*.html')
+                          if f.name != 'Summary.html' and not f.name.startswith('variant_')])
+
+    if not sample_files:
+        print(f"No sample HTML files found in {html_dir}")
+        return
+
+    # Collect sample info
+    samples = []
+    for f in sample_files:
+        sample_name = f.stem
+        # Try to extract variant count from the file
+        variant_count = 0
+        try:
+            with open(f, 'r', encoding='utf-8') as fp:
+                content = fp.read()
+                # Count variant-view divs
+                variant_count = content.count('class="view-section variant-view"')
+        except:
+            pass
+
+        samples.append({
+            'name': sample_name,
+            'file': f.name,
+            'variants': variant_count
+        })
+
+    # Generate Summary HTML
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variant Analysis Summary</title>
+    <style>
+:root {{
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --accent-color: #e74c3c;
+    --success-color: #27ae60;
+    --light-bg: #f8f9fa;
+    --border-color: #dee2e6;
+    --text-muted: #6c757d;
+}}
+
+* {{
+    box-sizing: border-box;
+}}
+
+body {{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.5;
+    color: #212529;
+    background-color: #f5f6fa;
+    margin: 0;
+    padding: 0;
+}}
+
+.container {{
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}}
+
+.header {{
+    background: linear-gradient(135deg, var(--primary-color) 0%, #34495e 100%);
+    color: white;
+    padding: 30px;
+    margin-bottom: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    text-align: center;
+}}
+
+.header h1 {{
+    margin: 0 0 10px 0;
+    font-size: 2.2rem;
+    font-weight: 700;
+}}
+
+.header .subtitle {{
+    opacity: 0.9;
+    font-size: 1rem;
+}}
+
+.stats-row {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}}
+
+.stat-card {{
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}}
+
+.stat-value {{
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}}
+
+.stat-label {{
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 5px;
+}}
+
+.section-title {{
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border-color);
+}}
+
+.sample-grid {{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}}
+
+.sample-card {{
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    border: 2px solid transparent;
+}}
+
+.sample-card:hover {{
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: var(--secondary-color);
+}}
+
+.sample-name {{
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+    word-break: break-word;
+}}
+
+.sample-info {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}}
+
+.variant-count {{
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+}}
+
+.variant-label {{
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}}
+
+.view-btn {{
+    display: inline-block;
+    padding: 8px 20px;
+    background: var(--secondary-color);
+    color: white;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+}}
+
+.sample-card:hover .view-btn {{
+    background: #2980b9;
+}}
+
+/* QC Placeholder Section */
+.qc-section {{
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    margin-top: 30px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}}
+
+.qc-placeholder {{
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+    font-style: italic;
+    background: var(--light-bg);
+    border-radius: 8px;
+    border: 2px dashed var(--border-color);
+}}
+
+.footer {{
+    text-align: center;
+    margin-top: 40px;
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}}
+
+@media (max-width: 768px) {{
+    .container {{
+        padding: 15px;
+    }}
+
+    .header {{
+        padding: 20px;
+    }}
+
+    .header h1 {{
+        font-size: 1.6rem;
+    }}
+
+    .sample-grid {{
+        grid-template-columns: 1fr;
+    }}
+}}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Variant Analysis Summary</h1>
+            <div class="subtitle">Generated: {Path(sample_files[0]).stat().st_mtime if sample_files else ''}</div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-value">{len(samples)}</div>
+                <div class="stat-label">Samples Analyzed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: var(--secondary-color);">{sum(s['variants'] for s in samples)}</div>
+                <div class="stat-label">Total Variants</div>
+            </div>
+        </div>
+
+        <div class="section-title">Sample Reports</div>
+        <div class="sample-grid">
+"""
+
+    for sample in samples:
+        html += f"""
+            <a href="{escape(sample['file'])}" class="sample-card">
+                <div class="sample-name">{escape(sample['name'])}</div>
+                <div class="sample-info">
+                    <div>
+                        <div class="variant-count">{sample['variants']}</div>
+                        <div class="variant-label">Variants</div>
+                    </div>
+                    <span class="view-btn">View Report</span>
+                </div>
+            </a>
+"""
+
+    html += """
+        </div>
+
+        <div class="qc-section">
+            <div class="section-title">Quality Control</div>
+            <div class="qc-placeholder">
+                Sequencing QC and Coverage QC data will be displayed here in future updates.
+            </div>
+        </div>
+
+        <div class="footer">
+            Generated by processVCF Pipeline
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+    print(f"Generated Summary.html with {len(samples)} sample(s): {output_file}")
+
+
 def main():
     import argparse
 
@@ -2265,18 +2572,37 @@ Examples:
 
   # Generate both formats
   python3 excel_to_html_report.py sample.xlsx ./html_output --single-page
+
+  # Generate Summary.html landing page from existing HTML reports
+  python3 excel_to_html_report.py --summary ./html_reports/
 """
     )
 
-    parser.add_argument('excel_file', help='Input Excel file (.xlsx)')
+    parser.add_argument('excel_file', nargs='?', default=None,
+                        help='Input Excel file (.xlsx)')
     parser.add_argument('output_dir', nargs='?', default=None,
                         help='Output directory for multi-page reports (default: ./html_reports)')
     parser.add_argument('--single-page', '-s', action='store_true',
                         help='Generate a single HTML page with all variants')
     parser.add_argument('--output', '-o', default=None,
                         help='Output file path for single-page report (default: <sample_name>.html)')
+    parser.add_argument('--summary', metavar='HTML_DIR',
+                        help='Generate Summary.html from existing HTML reports in the specified directory')
 
     args = parser.parse_args()
+
+    # Handle --summary mode
+    if args.summary:
+        if not os.path.isdir(args.summary):
+            print(f"Error: Directory not found: {args.summary}")
+            sys.exit(1)
+        generate_summary_html(args.summary)
+        return
+
+    # Normal mode requires excel_file
+    if not args.excel_file:
+        parser.print_help()
+        sys.exit(1)
 
     if not os.path.exists(args.excel_file):
         print(f"Error: File not found: {args.excel_file}")

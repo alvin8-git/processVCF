@@ -365,11 +365,24 @@ generate_html_reports() {
         fi
     done
 
+    # Generate Summary.html landing page
+    if [ $xlsx_count -gt 0 ]; then
+        log_info "Generating Summary.html landing page..."
+        python3 "$html_script" --summary "html_reports"
+
+        if [ $? -eq 0 ]; then
+            log_info "  -> Generated: html_reports/Summary.html"
+        else
+            log_error "  -> Failed to generate Summary.html"
+        fi
+    fi
+
     cd - > /dev/null
 
     if [ $xlsx_count -gt 0 ]; then
         log_info "Generated HTML reports for $xlsx_count sample(s)"
         log_info "HTML reports available at: $output_dir/html_reports/"
+        log_info "Open Summary.html to view all samples"
     else
         log_info "No Excel files found for HTML report generation"
     fi
@@ -451,11 +464,11 @@ generate_igv_snapshots() {
             fi
 
             # Create BED file from filtered variants (chr, start, end, name)
-            # Skip header line, extract chr (col1), pos (col2), create name from gene+pos
-            awk -F"\t" 'NR>1 && $1!="" {
+            # Skip header line, extract chr (col1), pos (col2), create name from sample-gene-pos
+            awk -F"\t" -v sample="$sample_name" 'NR>1 && $1!="" {
                 chr=$1; pos=$2; gene=$6;
                 if(gene=="") gene="variant";
-                print chr"\t"pos"\t"pos"\t"gene"-"pos".png"
+                print chr"\t"pos"\t"pos"\t"sample"-"gene"-"pos".png"
             }' "$filter_file" > "$bed_file"
 
             # Check if BED file has any variants
@@ -513,11 +526,11 @@ generate_igv_snapshots() {
                 continue
             fi
 
-            # Create BED file from filtered variants
-            awk -F"\t" 'NR>1 && $1!="" {
+            # Create BED file from filtered variants (include sample name in filename)
+            awk -F"\t" -v sample="$sample_name" 'NR>1 && $1!="" {
                 chr=$1; pos=$2; gene=$6;
                 if(gene=="") gene="variant";
-                print chr"\t"pos"\t"pos"\t"gene"-"pos".png"
+                print chr"\t"pos"\t"pos"\t"sample"-"gene"-"pos".png"
             }' "$filter_file" > "$bed_file"
 
             if [ ! -s "$bed_file" ]; then
