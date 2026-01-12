@@ -593,7 +593,7 @@ main() {
                 done
                 echo ""
                 echo "Local scripts (in $SCRIPT_DIR):"
-                for script in writeTMSPtoXLS.pl write1WStoXLS.pl mergeVCFannotation-optimized.sh excel_to_html_report.py make_IGV_snapshots.py; do
+                for script in mergeVCFannotation-optimized.sh excel_to_html_report.py make_IGV_snapshots.py; do
                     if [ -f "$SCRIPT_DIR/$script" ]; then
                         echo "  $script: OK"
                     else

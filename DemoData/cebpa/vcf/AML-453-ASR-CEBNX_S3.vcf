@@ -1,0 +1,36 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GQX,Number=1,Type=Integer,Description="Minimum of {Genotype quality assuming variant position,Genotype quality assuming non-variant position}">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allele Depth">
+##FORMAT=<ID=VF,Number=1,Type=Float,Description="Variant Frequency">
+##FORMAT=<ID=NL,Number=1,Type=Integer,Description="Applied BaseCall Noise Level">
+##FORMAT=<ID=SB,Number=1,Type=Float,Description="StrandBias Score">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=TI,Number=.,Type=String,Description="Transcript ID">
+##INFO=<ID=GI,Number=.,Type=String,Description="Gene ID">
+##INFO=<ID=EXON,Number=0,Type=Flag,Description="Exon Region">
+##INFO=<ID=FC,Number=.,Type=String,Description="Functional Consequence">
+##FILTER=<ID=LowVariantFreq,Description="Low variant frequency < 0.01">
+##FILTER=<ID=LowGQ,Description="GQ below < 30.00">
+##FILTER=<ID=R8,Description="IndelRepeatLength is greater than 8">
+##FILTER=<ID=LowDP,Description="Low coverage (DP tag), therefore no genotype called">
+##FILTER=<ID=SB,Description="Variant strand bias too high or coverage on only one strand">
+##fileDate=20220411
+##source=CallSomaticVariants 3.5.2.1
+##CallSomaticVariants_cmdline=" -B D:\Illumina\MiSeqAnalysis\220407_M05532_0144_000000000-KDRMV\Data\Intensities\BaseCalls\Alignment2 -g [C:\Illumina\MiSeq Reporter\Genomes\Homo_sapiens\UCSC\hg19\Sequence\WholeGenomeFasta,] -f 0.01 -fo True -b 20 -q 100 -c 10 -s 0.5 -a 20 -F 20 -gVCF False -i true -r D:\Illumina\MiSeqAnalysis\220407_M05532_0144_000000000-KDRMV"
+##reference=C:\Illumina\MiSeq Reporter\Genomes\Homo_sapiens\UCSC\hg19\Sequence\WholeGenomeFasta\genome.fa
+##contig=<ID=chr19,length=59128983>
+##bcftools_viewVersion=1.10.2+htslib-1.11
+##bcftools_viewCommand=view -i %QUAL>=100&&(%FILTER='PASS'||%FILTER='SB') -o AML-453-ASR-CEBNX_S3.x.vcf AML-453-ASR-CEBNX_S3.vcf; Date=Sat Apr 16 15:37:29 2022
+##bcftools_viewCommand=view -i %QUAL>=100&&(%FILTER='PASS'||%FILTER='SB') -o AML-453-ASR-CEBNX_S3.x.vcf AML-453-ASR-CEBNX_S3.vcf; Date=Tue Jul 26 16:21:54 2022
+##bcftools_viewCommand=view -i %QUAL>=100&&(%FILTER='PASS'||%FILTER='SB') -o AML-453-ASR-CEBNX_S3.x.vcf AML-453-ASR-CEBNX_S3.vcf; Date=Tue Jul 26 16:43:53 2022
+##bcftools_viewVersion=1.14+htslib-1.14
+##bcftools_viewCommand=view -i (%FILTER='PASS'||%FILTER='SB') -o AML-453-ASR-CEBNX_S3.x.vcf AML-453-ASR-CEBNX_S3.vcf; Date=Mon Jan  5 20:35:42 2026
+##bcftools_viewCommand=view -i (%FILTER='PASS'||%FILTER='SB') -o AML-453-ASR-CEBNX_S3.x.vcf AML-453-ASR-CEBNX_S3.vcf; Date=Mon Jan  5 20:45:14 2026
+##bcftools_viewCommand=view -i (%FILTER='PASS'||%FILTER='SB') -o AML-453-ASR-CEBNX_S3.x.vcf AML-453-ASR-CEBNX_S3.vcf; Date=Tue Jan  6 08:34:18 2026
+##bcftools_viewCommand=view -i (%FILTER='PASS'||%FILTER='SB') -o AML-453-ASR-CEBNX_S3.x.vcf AML-453-ASR-CEBNX_S3.vcf; Date=Wed Jan  7 06:36:01 2026
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	AML_453_ASR_CEBNX
+chr19	33792731	.	G	GGCGGGT	100	PASS	DP=246	GT:GQ:AD:VF:NL:SB:GQX	0/1:100:201,45:0.1829:20:-95.1295:100
+chr19	33793041	.	C	G	100	PASS	DP=540	GT:GQ:AD:VF:NL:SB:GQX	0/1:100:506,34:0.063:20:-67.9795:100

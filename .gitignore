@@ -3,6 +3,9 @@
 *.xlsx
 data/
 
+# Allow DemoData VCF files
+!DemoData/**/*.vcf
+
 # Build artifacts
 *.log
 

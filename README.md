@@ -22,6 +22,12 @@ processVCF/
 ├── make_IGV_snapshots.py            # IGV snapshot automator (Python 3)
 ├── Dockerfile                       # Docker container build file
 ├── docker-compose.yml               # Docker Compose configuration
+├── DemoData/                        # Demo data for testing
+│   ├── vcf/                         # TMSP VCF files
+│   ├── bam/                         # TMSP BAM files (user-provided)
+│   └── cebpa/                       # CEBPA data
+│       ├── vcf/                     # CEBPA VCF files
+│       └── bam/                     # CEBPA BAM files (user-provided)
 └── README.md                        # This file
 ```
 
@@ -81,6 +87,32 @@ These should be present in `$HOME/Databases/`:
 - `TMSPvcf/TSMPclean/` - TMSP reference VCFs (Clinical, AD, LRM, NA12878)
 - `TMSPvcf/CEBPA/` - CEBPA reference VCFs (Clinical, AD, CAP, MOLM14)
 - `TMSPvcf/TMSPcommon/TMSPcommonlist.txt` - Common variants list
+
+## Quick Start with Demo Data
+
+The repository includes demo VCF files to test the pipeline:
+
+```bash
+# Clone the repository
+git clone https://github.com/alvin8-git/processVCF.git
+cd processVCF
+
+# Navigate to demo VCF directory
+cd DemoData/vcf
+
+# Run the pipeline
+../../processVCF.sh
+```
+
+**Demo Data Contents:**
+- `DemoData/vcf/` - 4 TMSP VCF files (AML and MPN samples)
+- `DemoData/cebpa/vcf/` - 3 CEBPA/CEBNX VCF files
+- `DemoData/bam/` - Empty (add BAM files for IGV snapshots)
+- `DemoData/cebpa/bam/` - Empty (add BAM files for IGV snapshots)
+
+**Output Location:** `DemoData/output/`
+
+**Note:** BAM files are not included due to size (~1GB). IGV snapshots will be skipped unless you provide matching BAM files in the `bam/` directories. BAM files should be named to match VCF files (e.g., `AML-452-KHK-TMSP_S1.bam` for `AML-452-KHK-TMSP_S1.vcf`).
 
 ## Installation
 
