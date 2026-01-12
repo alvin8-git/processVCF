@@ -297,6 +297,83 @@ create_output() {
 }
 
 # =============================================================================
+# GENERATE HTML REPORTS
+# =============================================================================
+
+generate_html_reports() {
+    log_info "######################## GENERATING HTML REPORTS #########################"
+
+    local output_dir="../output"
+    local html_script="$SCRIPT_DIR/excel_to_html_report.py"
+
+    # Check if HTML generation script exists
+    if [ ! -f "$html_script" ]; then
+        log_error "HTML generation script not found: $html_script"
+        log_info "Skipping HTML report generation..."
+        return 0
+    fi
+
+    # Check if python3 and openpyxl are available
+    if ! command -v python3 &> /dev/null; then
+        log_error "python3 not found, skipping HTML report generation"
+        return 0
+    fi
+
+    if ! python3 -c "import openpyxl" 2>/dev/null; then
+        log_error "openpyxl module not found. Install with: pip install openpyxl"
+        log_info "Skipping HTML report generation..."
+        return 0
+    fi
+
+    # Generate HTML reports for each TMSP xlsx file (excluding Summary.xlsx and CEBNX files)
+    cd "$output_dir"
+
+    local xlsx_count=0
+    for xlsx in $(ls *-TMSP*.xlsx 2>/dev/null | grep -v "^Summary"); do
+        log_info "Generating HTML report for: $xlsx"
+
+        # Create output directory named after the sample
+        local sample_name=$(basename "$xlsx" .xlsx)
+        local html_dir="html_reports/${sample_name}"
+
+        python3 "$html_script" "$xlsx" "$html_dir"
+
+        if [ $? -eq 0 ]; then
+            xlsx_count=$((xlsx_count + 1))
+            log_info "  -> Generated: $html_dir/index.html"
+        else
+            log_error "  -> Failed to generate HTML for $xlsx"
+        fi
+    done
+
+    # Also generate for CEBNX files if present
+    for xlsx in $(ls *-CEBNX*.xlsx 2>/dev/null | grep -v "^Summary"); do
+        log_info "Generating HTML report for: $xlsx"
+
+        local sample_name=$(basename "$xlsx" .xlsx)
+        local html_dir="html_reports/${sample_name}"
+
+        python3 "$html_script" "$xlsx" "$html_dir"
+
+        if [ $? -eq 0 ]; then
+            xlsx_count=$((xlsx_count + 1))
+            log_info "  -> Generated: $html_dir/index.html"
+        else
+            log_error "  -> Failed to generate HTML for $xlsx"
+        fi
+    done
+
+    cd - > /dev/null
+
+    if [ $xlsx_count -gt 0 ]; then
+        log_info "Generated HTML reports for $xlsx_count sample(s)"
+        log_info "HTML reports available at: $output_dir/html_reports/"
+    else
+        log_info "No Excel files found for HTML report generation"
+    fi
+}
+
+# =============================================================================
 # MAIN FUNCTION
 # =============================================================================
 
@@ -328,13 +405,20 @@ main() {
                 done
                 echo ""
                 echo "Local scripts (in $SCRIPT_DIR):"
-                for script in writeTMSPtoXLS.pl write1WStoXLS.pl mergeVCFannotation-optimized.sh; do
+                for script in writeTMSPtoXLS.pl write1WStoXLS.pl mergeVCFannotation-optimized.sh excel_to_html_report.py; do
                     if [ -f "$SCRIPT_DIR/$script" ]; then
                         echo "  $script: OK"
                     else
                         echo "  $script: MISSING"
                     fi
                 done
+                echo ""
+                echo "Python modules:"
+                if python3 -c "import openpyxl" 2>/dev/null; then
+                    echo "  openpyxl: OK"
+                else
+                    echo "  openpyxl: MISSING (pip install openpyxl)"
+                fi
                 echo ""
                 echo "Integrated functions:"
                 echo "  vcf_stats: OK (built-in)"
@@ -382,6 +466,9 @@ main() {
 
     # Create output directory and copy files
     create_output
+
+    # Generate HTML reports from Excel files
+    generate_html_reports
 
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
