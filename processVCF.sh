@@ -385,6 +385,7 @@ generate_igv_snapshots() {
     local output_dir="../output"
     local igv_script="$SCRIPT_DIR/make_IGV_snapshots.py"
     local igv_jar="$HOME/Software/IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar"
+    local java8_path="/usr/lib/jvm/java-8-openjdk-amd64/bin/java"
     local bam_dir="../bam"
 
     # Check if IGV snapshot script exists
@@ -405,6 +406,13 @@ generate_igv_snapshots() {
     if ! command -v xvfb-run &> /dev/null; then
         log_error "xvfb-run not found, skipping IGV snapshot generation"
         log_info "Install with: apt install xvfb"
+        return 0
+    fi
+
+    # Check if Java 8 is available (required for IGV 2.3.81)
+    if [ ! -f "$java8_path" ]; then
+        log_error "Java 8 not found at: $java8_path"
+        log_info "IGV 2.3.81 requires Java 8. Install with: apt install openjdk-8-jdk"
         return 0
     fi
 
@@ -464,6 +472,7 @@ generate_igv_snapshots() {
                 -r "$bed_file" \
                 -o "SnapShots" \
                 -bin "$igv_jar" \
+                -java "$java8_path" \
                 -suffix "$sample_name" \
                 -nf4 \
                 -ht 500 \
@@ -523,6 +532,7 @@ generate_igv_snapshots() {
                 -r "$bed_file" \
                 -o "SnapShots" \
                 -bin "$igv_jar" \
+                -java "$java8_path" \
                 -suffix "$sample_name" \
                 -nf4 \
                 -ht 500 \
@@ -603,10 +613,16 @@ main() {
                 echo ""
                 echo "IGV Snapshots:"
                 local igv_jar="$HOME/Software/IGV-snapshot-automator/bin/IGV_2.3.81/igv.jar"
+                local java8="/usr/lib/jvm/java-8-openjdk-amd64/bin/java"
                 if [ -f "$igv_jar" ]; then
                     echo "  IGV JAR: OK ($igv_jar)"
                 else
                     echo "  IGV JAR: MISSING ($igv_jar)"
+                fi
+                if [ -f "$java8" ]; then
+                    echo "  Java 8: OK ($java8)"
+                else
+                    echo "  Java 8: MISSING (apt install openjdk-8-jdk)"
                 fi
                 echo ""
                 echo "Databases:"

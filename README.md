@@ -47,6 +47,7 @@ The following tools must be installed and in your PATH:
 | vcf-merge | VCF merging (vcftools) |
 | vcf-sort | VCF sorting (vcftools) |
 | xvfb-run | Virtual X server for IGV (apt install xvfb) |
+| openjdk-8 | Java 8 required for IGV 2.3.81 (apt install openjdk-8-jdk) |
 
 ### Perl Modules
 
@@ -283,7 +284,12 @@ python3 make_IGV_snapshots.py sample.bam -r variants.bed -o SnapShots -bin igv.j
 
 # Only generate batchscript without running IGV
 python3 make_IGV_snapshots.py sample.bam -r variants.bed -o SnapShots -bin igv.jar -nosnap
+
+# Specify custom Java 8 path (required for IGV 2.3.81)
+python3 make_IGV_snapshots.py sample.bam -r variants.bed -o SnapShots -bin igv.jar -java /path/to/java8
 ```
+
+**Note:** IGV 2.3.81 requires Java 8. The script defaults to `/usr/lib/jvm/java-8-openjdk-amd64/bin/java`.
 
 ### IGV Command Line Options
 
@@ -297,6 +303,7 @@ optional arguments:
   -ht IMAGE_HEIGHT      Track height in pixels (default: 500)
   -o OUTDIR             Output directory (default: IGV_Snapshots)
   -bin IGV_JAR_BIN      Path to IGV jar file
+  -java JAVA_PATH       Path to Java 8 executable (default: /usr/lib/jvm/java-8-openjdk-amd64/bin/java)
   -mem IGV_MEM          Memory for IGV in MB (default: 4000)
   -nosnap               Only write batchscript, don't run IGV
   -suffix SUFFIX        Filename suffix for snapshots

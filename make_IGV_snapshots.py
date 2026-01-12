@@ -175,9 +175,9 @@ def write_IGV_script(input_files, region_file, batchscript_file, snapshot_dir,
     append_string("exit", batchscript_file)
 
 
-def run_IGV_script(igv_script, igv_jar, mem_mb):
+def run_IGV_script(igv_script, igv_jar, mem_mb, java_path="java"):
     """Run IGV batch script using xvfb-run"""
-    igv_command = f"xvfb-run --auto-servernum --server-num=1 java -Xmx{mem_mb}m -jar {igv_jar} -b {igv_script}"
+    igv_command = f"xvfb-run --auto-servernum --server-num=1 {java_path} -Xmx{mem_mb}m -jar {igv_jar} -b {igv_script}"
 
     print(f'\nIGV command:\n{igv_command}\n')
 
@@ -197,14 +197,14 @@ def main(input_files, region_file='regions.bed', genome='hg19',
          image_height='500', outdir='IGV_Snapshots',
          igv_jar_bin="bin/IGV_2.3.81/igv.jar", igv_mem="4000",
          no_snap=False, suffix=None, nf4_mode=False, onlysnap=False,
-         group_by_strand=False):
+         group_by_strand=False, java_path="/usr/lib/jvm/java-8-openjdk-amd64/bin/java"):
     """Main control function"""
 
     # If only running existing batchscript
     if onlysnap:
         batchscript_file = str(onlysnap)
         file_exists(batchscript_file, kill=True)
-        run_IGV_script(batchscript_file, igv_jar_bin, igv_mem)
+        run_IGV_script(batchscript_file, igv_jar_bin, igv_mem, java_path)
         return
 
     # Default batchscript location
@@ -248,7 +248,7 @@ def main(input_files, region_file='regions.bed', genome='hg19',
 
     # Run IGV
     if not no_snap:
-        run_IGV_script(batchscript_file, igv_jar_bin, igv_mem)
+        run_IGV_script(batchscript_file, igv_jar_bin, igv_mem, java_path)
 
 
 def run():
@@ -287,6 +287,9 @@ Examples:
                         help="Run existing batchscript file")
     parser.add_argument("-s", "--group-by-strand", dest="group_by_strand",
                         action='store_true', help="Group reads by strand")
+    parser.add_argument("-java", dest='java_path',
+                        default="/usr/lib/jvm/java-8-openjdk-amd64/bin/java",
+                        help="Path to Java 8 executable (default: /usr/lib/jvm/java-8-openjdk-amd64/bin/java)")
 
     args = parser.parse_args()
 
@@ -302,7 +305,8 @@ Examples:
         suffix=args.suffix,
         nf4_mode=args.nf4_mode,
         onlysnap=args.onlysnap,
-        group_by_strand=args.group_by_strand
+        group_by_strand=args.group_by_strand,
+        java_path=args.java_path
     )
 
 
