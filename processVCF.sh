@@ -389,8 +389,77 @@ generate_html_reports() {
 }
 
 # =============================================================================
-# GENERATE IGV SNAPSHOTS
+# GENERATE IGV SNAPSHOTS (PARALLEL)
 # =============================================================================
+
+# Helper function to process a single sample's IGV snapshots
+# Called by GNU parallel - outputs to log file for each sample
+process_single_igv_sample() {
+    local filter_file="$1"
+    local bam_dir="$2"
+    local igv_script="$3"
+    local igv_jar="$4"
+    local java8_path="$5"
+
+    local sample_name=$(basename "$filter_file" .Filter.txt)
+    local bed_file="IgvBed/${sample_name}.bed"
+
+    # Find matching BAM file (try different naming patterns)
+    local bam_file=""
+    for pattern in "$bam_dir/${sample_name}"*.bam "$bam_dir/"*"${sample_name}"*.bam; do
+        if [ -f "$pattern" ]; then
+            bam_file="$pattern"
+            break
+        fi
+    done
+
+    if [ -z "$bam_file" ] || [ ! -f "$bam_file" ]; then
+        echo "[IGV] No BAM file found for $sample_name, skipping..."
+        return 1
+    fi
+
+    # Extract short sample ID (e.g., AML-452 from AML-452-KHK-TMSP_S1)
+    local short_sample=$(echo "$sample_name" | cut -d'-' -f1,2)
+
+    # Create BED file from filtered variants (chr, start, end, name)
+    awk -F"\t" -v sample="$short_sample" 'NR>1 && $1!="" {
+        chr=$1; pos=$2; gene=$6;
+        if(gene=="") gene="variant";
+        print chr"\t"pos"\t"pos"\t"sample"-"gene"-"pos".png"
+    }' "$filter_file" > "$bed_file"
+
+    # Check if BED file has any variants
+    if [ ! -s "$bed_file" ]; then
+        echo "[IGV] No variants in $sample_name, skipping..."
+        rm -f "$bed_file"
+        return 1
+    fi
+
+    local variant_count=$(wc -l < "$bed_file")
+    echo "[IGV] Processing $sample_name ($variant_count variants)..."
+
+    # Run IGV snapshot script
+    python3 "$igv_script" "$bam_file" \
+        -r "$bed_file" \
+        -o "SnapShots" \
+        -bin "$igv_jar" \
+        -java "$java8_path" \
+        -suffix "$sample_name" \
+        -nf4 \
+        -ht 500 \
+        -mem 4000 2>&1
+
+    if [ $? -eq 0 ]; then
+        echo "[IGV] Completed $sample_name"
+        return 0
+    else
+        echo "[IGV] Failed $sample_name"
+        return 1
+    fi
+}
+
+# Export the function for use with parallel
+export -f process_single_igv_sample
 
 generate_igv_snapshots() {
     log_info "######################## GENERATING IGV SNAPSHOTS #########################"
@@ -441,138 +510,74 @@ generate_igv_snapshots() {
     # Create IgvBed and SnapShots directories
     mkdir -p IgvBed SnapShots
 
-    local snapshot_count=0
+    # Determine parallel jobs
+    local max_jobs="${IGV_PARALLEL_JOBS:-0}"
 
-    # Process TMSP filtered files
+    if [ "$max_jobs" -eq 0 ]; then
+        # Auto-detect based on available memory
+        # Each IGV instance uses ~4GB, so limit concurrent jobs
+        local total_mem_gb=$(free -g | awk '/^Mem:/{print $2}')
+        max_jobs=$((total_mem_gb / 5))  # 5GB per job (4GB + overhead)
+        [ "$max_jobs" -lt 1 ] && max_jobs=1
+        [ "$max_jobs" -gt 4 ] && max_jobs=4   # Cap at 4 to avoid overwhelming xvfb
+        log_info "Running up to $max_jobs IGV instances in parallel (auto: ${total_mem_gb}GB RAM)"
+    elif [ "$max_jobs" -eq 1 ]; then
+        log_info "Running IGV snapshots sequentially (serial mode)"
+    else
+        log_info "Running up to $max_jobs IGV instances in parallel (user specified)"
+    fi
+
+    # Collect all filter files to process
+    local filter_files=()
+
+    # TMSP filtered files
     if [ -d annotationTMSP ]; then
-        for filter_file in $(ls annotationTMSP/*.Filter.txt 2>/dev/null); do
-            local sample_name=$(basename "$filter_file" .Filter.txt)
-            local bed_file="IgvBed/${sample_name}.bed"
-
-            # Find matching BAM file (try different naming patterns)
-            local bam_file=""
-            for pattern in "$bam_dir/${sample_name}"*.bam "$bam_dir/"*"${sample_name}"*.bam; do
-                if [ -f "$pattern" ]; then
-                    bam_file="$pattern"
-                    break
-                fi
-            done
-
-            if [ -z "$bam_file" ] || [ ! -f "$bam_file" ]; then
-                log_info "No BAM file found for $sample_name, skipping..."
-                continue
-            fi
-
-            # Extract short sample ID (e.g., AML-452 from AML-452-KHK-TMSP_S1)
-            local short_sample=$(echo "$sample_name" | cut -d'-' -f1,2)
-
-            # Create BED file from filtered variants (chr, start, end, name)
-            # Skip header line, extract chr (col1), pos (col2), create name from short_sample-gene-pos
-            awk -F"\t" -v sample="$short_sample" 'NR>1 && $1!="" {
-                chr=$1; pos=$2; gene=$6;
-                if(gene=="") gene="variant";
-                print chr"\t"pos"\t"pos"\t"sample"-"gene"-"pos".png"
-            }' "$filter_file" > "$bed_file"
-
-            # Check if BED file has any variants
-            if [ ! -s "$bed_file" ]; then
-                log_info "No variants in $sample_name, skipping IGV..."
-                rm -f "$bed_file"
-                continue
-            fi
-
-            local variant_count=$(wc -l < "$bed_file")
-            log_info "Generating IGV snapshots for $sample_name ($variant_count variants)..."
-
-            # Run IGV snapshot script
-            python3 "$igv_script" "$bam_file" \
-                -r "$bed_file" \
-                -o "SnapShots" \
-                -bin "$igv_jar" \
-                -java "$java8_path" \
-                -suffix "$sample_name" \
-                -nf4 \
-                -ht 500 \
-                -mem 4000 2>&1 | while read line; do
-                    echo "    $line"
-                done
-
-            if [ ${PIPESTATUS[0]} -eq 0 ]; then
-                snapshot_count=$((snapshot_count + 1))
-                log_info "  -> Generated snapshots in SnapShots/"
-            else
-                log_error "  -> Failed to generate snapshots for $sample_name"
-            fi
+        for f in annotationTMSP/*.Filter.txt; do
+            [ -f "$f" ] && filter_files+=("$f:$bam_dir")
         done
     fi
 
-    # Process CEBNX filtered files
+    # CEBNX filtered files (different BAM directory)
     if [ -d annotationCEBNX ]; then
-        for filter_file in $(ls annotationCEBNX/*.Filter.txt 2>/dev/null); do
-            local sample_name=$(basename "$filter_file" .Filter.txt)
-            local bed_file="IgvBed/${sample_name}.bed"
+        local cebpa_bam_dir="../cebpa/bam"
+        if [ -d "$cebpa_bam_dir" ]; then
+            for f in annotationCEBNX/*.Filter.txt; do
+                [ -f "$f" ] && filter_files+=("$f:$cebpa_bam_dir")
+            done
+        fi
+    fi
 
-            # Find matching BAM file in cebpa/bam directory
-            local bam_file=""
-            local cebpa_bam_dir="../cebpa/bam"
-            if [ -d "$cebpa_bam_dir" ]; then
-                for pattern in "$cebpa_bam_dir/${sample_name}"*.bam "$cebpa_bam_dir/"*"${sample_name}"*.bam; do
-                    if [ -f "$pattern" ]; then
-                        bam_file="$pattern"
-                        break
-                    fi
-                done
-            fi
+    if [ ${#filter_files[@]} -eq 0 ]; then
+        log_info "No filter files found for IGV processing"
+        cd - > /dev/null
+        return 0
+    fi
 
-            if [ -z "$bam_file" ] || [ ! -f "$bam_file" ]; then
-                log_info "No BAM file found for $sample_name (CEBNX), skipping..."
-                continue
-            fi
+    log_info "Processing ${#filter_files[@]} sample(s)..."
 
-            # Extract short sample ID (e.g., AML-452 from AML-452-KHK-CEBNX_S1)
-            local short_sample=$(echo "$sample_name" | cut -d'-' -f1,2)
+    # Run in parallel using GNU parallel
+    # Format: filter_file:bam_dir
+    local success_count=0
+    local fail_count=0
 
-            # Create BED file from filtered variants (include short sample name in filename)
-            awk -F"\t" -v sample="$short_sample" 'NR>1 && $1!="" {
-                chr=$1; pos=$2; gene=$6;
-                if(gene=="") gene="variant";
-                print chr"\t"pos"\t"pos"\t"sample"-"gene"-"pos".png"
-            }' "$filter_file" > "$bed_file"
-
-            if [ ! -s "$bed_file" ]; then
-                log_info "No variants in $sample_name (CEBNX), skipping IGV..."
-                rm -f "$bed_file"
-                continue
-            fi
-
-            local variant_count=$(wc -l < "$bed_file")
-            log_info "Generating IGV snapshots for $sample_name ($variant_count variants)..."
-
-            python3 "$igv_script" "$bam_file" \
-                -r "$bed_file" \
-                -o "SnapShots" \
-                -bin "$igv_jar" \
-                -java "$java8_path" \
-                -suffix "$sample_name" \
-                -nf4 \
-                -ht 500 \
-                -mem 4000 2>&1 | while read line; do
-                    echo "    $line"
-                done
-
-            if [ ${PIPESTATUS[0]} -eq 0 ]; then
-                snapshot_count=$((snapshot_count + 1))
-                log_info "  -> Generated snapshots in SnapShots/"
-            else
-                log_error "  -> Failed to generate snapshots for $sample_name"
+    printf '%s\n' "${filter_files[@]}" | \
+        parallel -j "$max_jobs" --colsep ':' \
+        "process_single_igv_sample {1} {2} '$igv_script' '$igv_jar' '$java8_path'" 2>&1 | \
+        while read line; do
+            echo "    $line"
+            # Count successes/failures from output
+            if [[ "$line" == *"[IGV] Completed"* ]]; then
+                ((success_count++)) 2>/dev/null || true
             fi
         done
-    fi
+
+    # Count actual PNG files generated
+    local png_count=$(ls SnapShots/*.png 2>/dev/null | wc -l)
 
     cd - > /dev/null
 
-    if [ $snapshot_count -gt 0 ]; then
-        log_info "Generated IGV snapshots for $snapshot_count sample(s)"
+    if [ "$png_count" -gt 0 ]; then
+        log_info "Generated $png_count IGV snapshot(s)"
         log_info "Snapshots available at: $output_dir/SnapShots/"
         log_info "BED files available at: $output_dir/IgvBed/"
     else
@@ -663,6 +668,9 @@ main() {
     local force=false
     local show_status_only=false
 
+    # Parallel settings (exported for use in functions)
+    export IGV_PARALLEL_JOBS=0  # 0 = auto-detect based on memory
+
     log_info "=========================================="
     log_info "VCF Processing Pipeline (TMSP + CEBPA)"
     log_info "=========================================="
@@ -700,6 +708,13 @@ main() {
                 ;;
             --force|-f)
                 force=true
+                ;;
+            --parallel|-j)
+                shift
+                export IGV_PARALLEL_JOBS="$1"
+                ;;
+            --serial)
+                export IGV_PARALLEL_JOBS=1
                 ;;
             --status)
                 show_status_only=true
@@ -778,6 +793,8 @@ main() {
                 echo "  --from-igv      Run from IGV stage onwards (IGV + HTML)"
                 echo "  --from-html     Run HTML stage only (same as --html)"
                 echo "  --force, -f     Force re-run even if stage is complete"
+                echo "  --parallel N    Run N IGV instances in parallel (default: auto based on RAM)"
+                echo "  --serial        Run IGV snapshots sequentially (same as --parallel 1)"
                 echo "  --check         Check dependencies"
                 echo "  --help          Show this help"
                 echo ""
@@ -786,6 +803,8 @@ main() {
                 echo "  $0 --status         # Check what stages are complete"
                 echo "  $0 --from-igv       # Re-run IGV and HTML (annotation already done)"
                 echo "  $0 --html --force   # Force regenerate HTML reports"
+                echo "  $0 --igv --parallel 2  # Run IGV with 2 parallel jobs"
+                echo "  $0 --igv --serial   # Run IGV sequentially (for debugging)"
                 echo ""
                 echo "Expected directory structure:"
                 echo "  /path/to/analysis/"

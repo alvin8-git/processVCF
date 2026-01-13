@@ -186,9 +186,45 @@ cd DemoData/vcf
 ```
 Usage: processVCF.sh [options]
 
+Pipeline Stages:
+  1. Annotation  - Run ANNOVAR, VEP, snpEff, TransVar, CancerVar
+  2. IGV         - Generate IGV snapshots from BAM files
+  3. HTML        - Generate HTML reports from Excel files
+
 Options:
-  --check       Check all dependencies and databases
-  --help        Show help message
+  (no options)      Run all stages (skip completed stages)
+  --status          Show pipeline completion status
+  --annotate        Run annotation stage only
+  --igv             Run IGV snapshot stage only
+  --html            Run HTML report stage only
+  --from-igv        Run from IGV stage onwards (IGV + HTML)
+  --from-html       Run HTML stage only (same as --html)
+  --force, -f       Force re-run even if stage is complete
+  --parallel N      Run N IGV instances in parallel (default: auto based on RAM)
+  --serial          Run IGV snapshots sequentially (same as --parallel 1)
+  --check           Check all dependencies and databases
+  --help            Show help message
+```
+
+### Checkpoint System
+
+The pipeline automatically detects completed stages and skips them:
+
+```bash
+# Check what stages have been completed
+./processVCF.sh --status
+
+# Re-run just the IGV stage (annotation must be complete)
+./processVCF.sh --igv --force
+
+# Run from IGV stage onwards (useful after adding BAM files)
+./processVCF.sh --from-igv
+
+# Force regenerate HTML reports
+./processVCF.sh --html --force
+
+# Run IGV with 2 parallel jobs
+./processVCF.sh --igv --parallel 2
 ```
 
 ## Output
@@ -225,6 +261,9 @@ Automatically generated IGV snapshots for filtered variants:
 - Short sample ID extracted from first two parts (e.g., AML-452 from AML-452-KHK-TMSP_S1)
 - Created using xvfb-run (virtual X display)
 - Requires BAM files in `../bam/` directory
+- **Parallel processing**: By default, auto-detects available RAM and runs 1-4 IGV instances simultaneously
+  - Use `--parallel N` to specify number of concurrent jobs
+  - Use `--serial` for sequential processing (debugging)
 
 ```
 SnapShots/
@@ -445,6 +484,13 @@ MIT License
 
 ## Version History
 
+- v2.8 (2025-01): Checkpoint system and parallel IGV
+  - Added checkpoint detection to automatically skip completed stages
+  - New CLI options: --status, --annotate, --igv, --html, --from-igv, --from-html, --force
+  - Parallel IGV snapshot generation using GNU parallel
+  - Auto-detects available RAM and runs 1-4 IGV instances concurrently
+  - Use `--parallel N` to specify concurrent jobs, `--serial` for sequential
+  - Summary.html landing page linking to all sample reports
 - v2.7 (2025-01): Embedded HTML reports and IGV screenshot panel
   - HTML reports now generate single self-contained files per sample
   - All variant detail pages embedded in one HTML (no separate variant_*.html files)
