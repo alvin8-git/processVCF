@@ -3,8 +3,9 @@
 *.xlsx
 data/
 
-# Allow DemoData VCF files
-!DemoData/**/*.vcf
+# Demo data (downloaded from GitHub Releases)
+DemoData/
+DemoData.tar.gz
 
 # Build artifacts
 *.log
