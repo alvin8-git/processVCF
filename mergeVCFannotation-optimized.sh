@@ -297,8 +297,8 @@ run_snpeff() {
     # Combine and sort
     cat "$sample.snpEff.filter.vcf" \
         <(awk 'FNR==NR{a[$1"_"$2"_"$4"_"$5]=$0;next}{if(!($1"_"$2"_"$4"_"$5 in a))print}' \
-        <(grep -v "^\#" "$sample.snpEff.filter.vcf") \
-        <(grep -v "^\#" "$sample.snpEff.ref.vcf")) | vcf-sort -c 2>/dev/null \
+        <(grep -v "^#" "$sample.snpEff.filter.vcf") \
+        <(grep -v "^#" "$sample.snpEff.ref.vcf")) | vcf-sort -c 2>/dev/null \
         > "$sample.snpEff.vcf"
 
     # Extract fields
@@ -344,13 +344,13 @@ run_transvar() {
     # Run transvar
     transvar ganno --reference "$HG19_FASTA" --refversion hg19 \
         --vcf "$vcf" --refseq --aa3 --noheader 2>/dev/null | \
-        awk '{if($1!~/^\#/)print}' | awk '{if($11!~/^X/)print}' \
+        awk '{if($1!~/^#/)print}' | awk '{if($11!~/^X/)print}' \
         > "./transvar/$sample.transvar.vcf"
 
     # Extract useful fields
     paste \
-        <(awk '{if($1!~/^\##/)print}' "./transvar/$sample.transvar.vcf" | cut -f1-2,4-5) \
-        <(awk '{if($1!~/^\##/)print}' "./transvar/$sample.transvar.vcf" | rev | cut -f3-6 | rev) \
+        <(awk '{if($1!~/^##/)print}' "./transvar/$sample.transvar.vcf" | cut -f1-2,4-5) \
+        <(awk '{if($1!~/^##/)print}' "./transvar/$sample.transvar.vcf" | rev | cut -f3-6 | rev) \
         | sed 's/\//\t/g' | awk '{if($5!~/^X/)print}' | sed 's/[[:space:]](protein_coding)//g' \
         > "$sample.noX.txt"
 
@@ -374,7 +374,7 @@ run_transvar() {
     fi
 
     # Get VCF positions
-    awk '{if($1!~/^\#/)print}' "$vcf" | cut -f1-2,4-5 > "$sample.noheaderVCF.txt"
+    awk '{if($1!~/^#/)print}' "$vcf" | cut -f1-2,4-5 > "$sample.noheaderVCF.txt"
 
     # Find longest transcript per variant
     awk '{
@@ -444,7 +444,7 @@ run_sg10k() {
 
     log_info "Starting SG10K annotation for $sample"
 
-    awk '{if($1!~/^\#/)print $1"\t"$2"\t"$4"\t"$5}' "$vcf" > "$sample.noheader.vcf"
+    awk '{if($1!~/^#/)print $1"\t"$2"\t"$4"\t"$5}' "$vcf" > "$sample.noheader.vcf"
 
     awk -F"\t" 'NR==FNR{a["chr"$1"_"$2"_"$3"_"$4]="chr"$0;next}{if(($1"_"$2"_"$3"_"$4 in a))print a[$1"_"$2"_"$3"_"$4];else print $1"\t"$2"\t"$3"\t"$4"\t-\t-\t-\t-\t-\t-\t-\t-"}' \
         "$SG10K_DB" "$sample.noheader.vcf" \
@@ -468,7 +468,7 @@ run_genomeasia() {
 
     awk -F"\t" 'NR==FNR{a["chr"$1"_"$2"_"$3"_"$4]="chr"$0;next}{if($1"_"$2"_"$3"_"$4 in a)print a[$1"_"$2"_"$3"_"$4];else print $1"\t"$2"\t"$3"\t"$4"\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-"}' \
         "$GENOMEASIA_DB" \
-        <(grep -v "^\#" "$vcf" | cut -f1,2,4,5) | \
+        <(grep -v "^#" "$vcf" | cut -f1,2,4,5) | \
         sort -k1,1V -k2,2n | \
         sed '1s/^/CHR\tPOS\tREF\tALT\tSEA_AN\tSEA_AC\tSEA_AF\tSEA_HOM\tNEA_AN\tNEA_AC\tNEA_AF\tNEA_HOM\tSAS_AN\tSAS_AC\tSAS_AF\tSAS_HOM\n/' \
         > "$sample.genomeAsia.txt"
