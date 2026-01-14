@@ -13,7 +13,7 @@ FROM ubuntu:22.04
 
 LABEL maintainer="Alvin Ng"
 LABEL description="VCF Processing Pipeline for TMSP and CEBPA panels"
-LABEL version="2.8"
+LABEL version="2.9"
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -64,6 +64,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bzip2 \
     xz-utils \
     unzip \
+    # User switching for entrypoint
+    gosu \
     # Required for Perl modules and compilation
     build-essential \
     cpanminus \
@@ -181,11 +183,22 @@ ENV PATH="/home/$USERNAME/Software/annovar:/home/$USERNAME/Software/snpEff:/home
 ENV PERL5LIB="/home/$USERNAME/Software/ensembl-vep/modules"
 
 # =============================================================================
-# WORKING DIRECTORY AND USER
+# ENTRYPOINT SCRIPT
+# =============================================================================
+# Entrypoint handles permission issues by:
+# 1. Starting as root
+# 2. Fixing /data directory permissions
+# 3. Dropping to 'user' via gosu
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# =============================================================================
+# WORKING DIRECTORY AND ENTRYPOINT
 # =============================================================================
 
 WORKDIR /data
-USER $USERNAME
 
-# Default command
+# Container starts as root, entrypoint switches to 'user' after fixing permissions
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["bash"]

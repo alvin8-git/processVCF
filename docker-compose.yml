@@ -8,6 +8,13 @@
 # Prerequisites:
 #   - Databases directory at ${HOME}/Databases
 #   - VEP installation at ${HOME}/Software/ensembl-vep (optional)
+#
+# Permission Handling:
+#   The entrypoint script automatically handles /data permissions by:
+#   1. Starting as root
+#   2. Fixing /data ownership to container user
+#   3. Dropping privileges to run as 'user'
+#   No manual user:group configuration needed.
 # =============================================================================
 
 version: '3.8'
@@ -25,12 +32,12 @@ services:
       - ${HOME}/Software/ensembl-vep:/home/user/Software/ensembl-vep:ro
 
       # Mount data directory for processing (read-write)
+      # Permissions handled automatically by entrypoint.sh
       - ./data:/data
 
     working_dir: /data
     stdin_open: true
     tty: true
-    command: bash
 
   # Alternative minimal configuration (specific databases only)
   processvcf-minimal:
@@ -43,9 +50,8 @@ services:
       - ${HOME}/Databases/TMSPvcf:/home/user/Databases/TMSPvcf:ro
       - ${HOME}/Databases/Ensembldata:/home/user/Databases/Ensembldata:ro
       - ${HOME}/Databases/snpEff:/home/user/Databases/snpEff:ro
-      # Data directory
+      # Data directory (permissions handled by entrypoint.sh)
       - ./data:/data
     working_dir: /data
     stdin_open: true
     tty: true
-    command: bash

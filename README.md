@@ -465,8 +465,18 @@ The Docker container includes:
 - CancerVar
 - IGV 2.3.81 with xvfb for headless snapshots
 - HTML report generator
+- gosu for privilege dropping
 
 **Note:** VEP and databases must be mounted at runtime due to their large size.
+
+### Permission Handling
+
+The container uses an entrypoint script (`entrypoint.sh`) that automatically handles permission issues:
+1. Container starts as root
+2. Entrypoint fixes `/data` directory ownership to the container user
+3. Drops privileges to run as `user` via gosu
+
+This eliminates the need to manually specify `--user` flags or match host UIDs.
 
 ### Required Volume Mounts
 
@@ -484,6 +494,10 @@ MIT License
 
 ## Version History
 
+- v2.9 (2025-01): Docker permission handling
+  - Added entrypoint.sh for automatic /data permission handling
+  - Container now uses gosu for secure privilege dropping
+  - No need to specify --user flags when running container
 - v2.8 (2025-01): Checkpoint system and parallel IGV
   - Added checkpoint detection to automatically skip completed stages
   - New CLI options: --status, --annotate, --igv, --html, --from-igv, --from-html, --force
