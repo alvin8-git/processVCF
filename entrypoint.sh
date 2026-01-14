@@ -16,15 +16,8 @@ TARGET_GROUP="user"
 if [ "$(id -u)" = "0" ]; then
     # Ensure /data directory exists and is writable by user
     if [ -d "/data" ]; then
-        chown "$TARGET_USER:$TARGET_GROUP" /data 2>/dev/null || true
-
-        # Also fix ownership of any existing subdirectories that need write access
-        # (output, annotationTMSP, annotationCEBNX, SnapShots, html_reports, IgvBed)
-        for subdir in output vcf cebpa; do
-            if [ -d "/data/$subdir" ]; then
-                chown -R "$TARGET_USER:$TARGET_GROUP" "/data/$subdir" 2>/dev/null || true
-            fi
-        done
+        # Fix ownership of /data and all subdirectories recursively
+        chown -R "$TARGET_USER:$TARGET_GROUP" /data 2>/dev/null || true
     fi
 
     # Execute command as user using gosu
