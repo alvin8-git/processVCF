@@ -90,13 +90,38 @@ These should be present in `$HOME/Databases/`:
 
 ## Quick Start with Demo Data
 
-The repository includes demo VCF files to test the pipeline:
+Demo data (~1GB) is available from GitHub Releases due to file size limits.
+
+### Download Demo Data
 
 ```bash
 # Clone the repository
 git clone https://github.com/alvin8-git/processVCF.git
 cd processVCF
 
+# Download demo data from GitHub Releases
+wget https://github.com/alvin8-git/processVCF/releases/download/v2.9/DemoData.tar.gz
+
+# Extract demo data
+tar -xzf DemoData.tar.gz
+```
+
+### Run with Docker (Recommended)
+
+```bash
+# Build the container
+docker build -t processvcf .
+
+# Run pipeline with demo data
+docker run --rm -it \
+  -v $HOME/Databases:/home/user/Databases:ro \
+  -v $(pwd)/DemoData:/data \
+  processvcf bash -c "cd /data/vcf && processVCF.sh"
+```
+
+### Run Natively
+
+```bash
 # Navigate to demo VCF directory
 cd DemoData/vcf
 
@@ -107,12 +132,10 @@ cd DemoData/vcf
 **Demo Data Contents:**
 - `DemoData/vcf/` - 4 TMSP VCF files (AML and MPN samples)
 - `DemoData/cebpa/vcf/` - 3 CEBPA/CEBNX VCF files
-- `DemoData/bam/` - Empty (add BAM files for IGV snapshots)
-- `DemoData/cebpa/bam/` - Empty (add BAM files for IGV snapshots)
+- `DemoData/bam/` - BAM files for IGV snapshots
+- `DemoData/cebpa/bam/` - CEBPA BAM files for IGV snapshots
 
 **Output Location:** `DemoData/output/`
-
-**Note:** BAM files are not included due to size (~1GB). IGV snapshots will be skipped unless you provide matching BAM files in the `bam/` directories. BAM files should be named to match VCF files (e.g., `AML-452-KHK-TMSP_S1.bam` for `AML-452-KHK-TMSP_S1.vcf`).
 
 ## Installation
 
