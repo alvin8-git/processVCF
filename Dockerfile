@@ -114,6 +114,7 @@ RUN mkdir -p /home/$USERNAME/Software \
 
 # ANNOVAR requires registration - copy from local installation
 COPY --chown=$USERNAME:$USERNAME annovar/ /home/$USERNAME/Software/annovar/
+RUN chmod +x /home/$USERNAME/Software/annovar/*.pl
 
 # =============================================================================
 # snpEff (copy from local)
@@ -123,8 +124,10 @@ COPY --chown=$USERNAME:$USERNAME annovar/ /home/$USERNAME/Software/annovar/
 
 COPY --chown=$USERNAME:$USERNAME snpEff/ /home/$USERNAME/Software/snpEff/
 
-# Create symlink for snpEff data directory (will be mounted at runtime)
-RUN mkdir -p /home/$USERNAME/Databases/snpEff && \
+# Ensure snpEff scripts are executable and create data symlink
+RUN chmod +x /home/$USERNAME/Software/snpEff/scripts/*.pl \
+             /home/$USERNAME/Software/snpEff/scripts/*.sh 2>/dev/null || true && \
+    mkdir -p /home/$USERNAME/Databases/snpEff && \
     ln -sf /home/$USERNAME/Databases/snpEff /home/$USERNAME/Software/snpEff/data
 
 # =============================================================================
@@ -132,6 +135,7 @@ RUN mkdir -p /home/$USERNAME/Databases/snpEff && \
 # =============================================================================
 
 COPY --chown=$USERNAME:$USERNAME CancerVar/ /home/$USERNAME/Software/CancerVar/
+RUN chmod +x /home/$USERNAME/Software/CancerVar/*.py
 
 # =============================================================================
 # IGV (Integrative Genomics Viewer) for snapshots
