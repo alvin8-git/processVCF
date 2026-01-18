@@ -13,7 +13,7 @@ FROM ubuntu:22.04
 
 LABEL maintainer="Alvin Ng"
 LABEL description="VCF Processing Pipeline for TMSP and CEBPA panels"
-LABEL version="2.9"
+LABEL version="2.10"
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -96,7 +96,23 @@ RUN cpanm --notest Excel::Writer::XLSX
 RUN pip3 install --no-cache-dir transvar openpyxl
 
 # Configure TransVar with hg19 reference
-RUN mkdir -p /home/$USERNAME/.transvar.cfg.d
+# Download annotation databases (~267MB) and create config pointing to mounted reference genome
+# Note: transvar downloads to /usr/local/lib/python3.10/dist-packages/transvar/transvar.download/
+RUN transvar config --download_anno --refversion hg19 --skip_reference && \
+    TRANSVAR_DB=/usr/local/lib/python3.10/dist-packages/transvar/transvar.download && \
+    echo "[DEFAULT]" > /home/$USERNAME/.transvar.cfg && \
+    echo "refversion = hg19" >> /home/$USERNAME/.transvar.cfg && \
+    echo "" >> /home/$USERNAME/.transvar.cfg && \
+    echo "[hg19]" >> /home/$USERNAME/.transvar.cfg && \
+    echo "reference = /home/$USERNAME/Databases/WholeGenomeFASTA/genome.fa" >> /home/$USERNAME/.transvar.cfg && \
+    echo "refseq = $TRANSVAR_DB/hg19.refseq.gff.gz.transvardb" >> /home/$USERNAME/.transvar.cfg && \
+    echo "ccds = $TRANSVAR_DB/hg19.ccds.txt.transvardb" >> /home/$USERNAME/.transvar.cfg && \
+    echo "ensembl = $TRANSVAR_DB/hg19.ensembl.gtf.gz.transvardb" >> /home/$USERNAME/.transvar.cfg && \
+    echo "gencode = $TRANSVAR_DB/hg19.gencode.gtf.gz.transvardb" >> /home/$USERNAME/.transvar.cfg && \
+    echo "ucsc = $TRANSVAR_DB/hg19.ucsc.txt.gz.transvardb" >> /home/$USERNAME/.transvar.cfg && \
+    echo "aceview = $TRANSVAR_DB/hg19.aceview.gff.gz.transvardb" >> /home/$USERNAME/.transvar.cfg && \
+    echo "known_gene = $TRANSVAR_DB/hg19.knowngene.gz.transvardb" >> /home/$USERNAME/.transvar.cfg && \
+    chown $USERNAME:$USERNAME /home/$USERNAME/.transvar.cfg
 
 # =============================================================================
 # SOFTWARE DIRECTORY SETUP
@@ -175,6 +191,7 @@ COPY --chown=$USERNAME:$USERNAME processVCF.sh /home/$USERNAME/Scripts/
 COPY --chown=$USERNAME:$USERNAME mergeVCFannotation-optimized.sh /home/$USERNAME/Scripts/
 COPY --chown=$USERNAME:$USERNAME make_IGV_snapshots.py /home/$USERNAME/Scripts/
 COPY --chown=$USERNAME:$USERNAME excel_to_html_report.py /home/$USERNAME/Scripts/
+COPY --chown=$USERNAME:$USERNAME check_docker_deps.sh /home/$USERNAME/Scripts/
 
 RUN chmod +x /home/$USERNAME/Scripts/*.sh /home/$USERNAME/Scripts/*.py
 
